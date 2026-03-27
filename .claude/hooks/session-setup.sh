@@ -43,5 +43,17 @@ for line in "${STATUS[@]}"; do
 done
 echo "---"
 
+# ── Next session context (scope carryover) ─────────────────────
+NEXT_SESSION="$ROOT/.claude/memory/next-session.md"
+if [ -f "$NEXT_SESSION" ]; then
+  echo ""
+  echo "--- Prior Session Context ---"
+  cat "$NEXT_SESSION"
+  echo "---"
+  echo ""
+  echo "NOTE: The above items are OUT OF SCOPE for the current PR."
+  echo "Start a new branch/PR to address them."
+fi
+
 # Never block session start
 exit 0
