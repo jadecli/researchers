@@ -42,6 +42,65 @@ Add two GitHub Actions workflows using `CLAUDE_CODE_OAUTH_TOKEN` from repo secre
    - Uses `CLAUDE_CODE_OAUTH_TOKEN` for AI-assisted triage of findings
    - Posts findings as PR review comments
 
+### feat: dual-format agenttasks — human-readable webapp + AI agent-optimized markup
+
+Make agenttasks.io serve both humans (browser) and AI agents (crawlers, Claude, GPT, etc.)
+across all seven areas of the agent-readable web spec:
+
+#### 1. Site-level discovery
+- `public/llms.txt` — structured site index for LLM crawlers (llmstxt.org spec)
+- `public/robots.txt` — allow AI user-agents, link to sitemaps
+- Dual sitemaps: XML (`sitemap.xml`) for search engines + Markdown (`sitemap.md`) for LLMs
+- `AGENTS.md` at repo root — describes capabilities, API surface, tool usage for agent consumers
+
+#### 2. Page-level HTML requirements
+- Canonical `<link rel="canonical">` on every page
+- `<meta name="description">` and `<meta name="robots">` tags
+- JSON-LD structured data (`@type: WebSite`, `@type: WebPage`, `@type: TechArticle`)
+- Clean heading hierarchy (single `<h1>`, logical `<h2>`–`<h4>` nesting)
+- High signal-to-noise ratio: minimize boilerplate, maximize content density
+
+#### 3. Markdown mirrors + content negotiation
+- Static `.md` files alongside each page route (e.g., `/specification.md`)
+- Next.js middleware: `Accept: text/markdown` header serves `.md` instead of HTML
+- `<link rel="alternate" type="text/markdown" href="...">` in HTML `<head>`
+- Cloudflare/Vercel edge fallback: redirect `*.md` URLs to markdown content
+
+#### 4. Code/API docs
+- Language-tagged code blocks with `data-language` attributes
+- OpenAPI/JSON Schema links for the task specification format
+- Inline `<code>` with semantic markup for type references
+
+#### 5. Next.js-specific tooling
+- Evaluate `@agentmarkup/next` package for automated agent markup generation
+- Use Next.js built-in `metadata` API for all SEO/agent meta tags
+- Middleware pattern for content negotiation (`middleware.ts`)
+- `generateStaticParams` for pre-rendering markdown variants
+
+#### 6. Implementation checklist (5 phases for agenttasks)
+- Phase 1: `llms.txt` + `robots.txt` + `AGENTS.md` (site discovery)
+- Phase 2: Meta tags + JSON-LD + canonical links (page-level HTML)
+- Phase 3: Markdown mirrors + `Accept` negotiation middleware (content negotiation)
+- Phase 4: Code block markup + OpenAPI schema links (API docs)
+- Phase 5: `@agentmarkup/next` integration + dual sitemap generation (tooling)
+
+#### 7. Reference URLs
+- llmstxt.org spec: https://llmstxt.org/
+- AGENTS.md convention: https://agents-md.org/ (if standardized) or follow Vercel's pattern
+- JSON-LD: https://json-ld.org/ and https://schema.org/TechArticle
+- @agentmarkup/next: https://www.npmjs.com/package/@agentmarkup/next
+- Next.js Metadata API: https://nextjs.org/docs/app/api-reference/functions/generate-metadata
+- Sitemap generation: https://nextjs.org/docs/app/api-reference/file-conventions/sitemap
+
+#### Key files to create/modify
+- `agenttasks/public/llms.txt` — CREATE
+- `agenttasks/public/robots.txt` — CREATE
+- `agenttasks/src/app/sitemap.ts` — CREATE (Next.js sitemap route)
+- `agenttasks/src/middleware.ts` — CREATE (content negotiation)
+- `agenttasks/src/app/layout.tsx` — MODIFY (JSON-LD, meta tags)
+- `AGENTS.md` — CREATE (root level)
+- Per-route `.md` static files — CREATE alongside each page.tsx
+
 ### References
 - Existing workflows in `claude-code-actions/.github/workflows/` (7 workflows)
 - Security scanners in `claude-code-security-review/scanners/` (Python, TS, Go, Rust)
