@@ -1,97 +1,73 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AgentTasks — Open format for AI agent task orchestration",
-  description:
-    "A data-driven task orchestration platform for AI agents. Built on crawled documentation from Claude, Neon, and Vercel. Powered by Next.js + Neon Postgres 18.",
+  title: "AgentTasks",
+  description: "Data-driven task orchestration for AI agents",
 };
 
-const NAV_ITEMS = [
-  { label: "Overview", href: "/" },
-  { label: "What are tasks?", href: "/what-are-tasks" },
-  { label: "Specification", href: "/specification" },
-  {
-    label: "Task Creation",
-    children: [
-      { label: "Quickstart", href: "/task-creation/quickstart" },
-      { label: "Best Practices", href: "/task-creation/best-practices" },
-      { label: "Evaluating Tasks", href: "/task-creation/evaluating-tasks" },
-      { label: "Optimizing Targets", href: "/task-creation/optimizing-targets" },
-      { label: "Using Spiders", href: "/task-creation/using-spiders" },
-    ],
-  },
-  {
-    label: "Integration",
-    children: [
-      { label: "Adding Task Support", href: "/integration/adding-task-support" },
-    ],
-  },
-  { label: "Pages", href: "/pages" },
-  { label: "Rounds", href: "/rounds" },
-  { label: "Tasks", href: "/tasks" },
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: "#141413",
+};
+
+const NAV = [
+  { label: "Overview", href: "/", icon: "◉" },
+  { label: "Docs", href: "/what-are-tasks", icon: "?" },
+  { label: "Spec", href: "/specification", icon: "⎕" },
+  { label: "Rounds", href: "/rounds", icon: "↻" },
+  { label: "Tasks", href: "/tasks", icon: "☐" },
 ];
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
-    >
-      <body className="min-h-full flex bg-zinc-950 text-zinc-100">
-        {/* Sidebar */}
-        <aside className="w-64 border-r border-zinc-800 p-6 flex flex-col gap-1 fixed h-full overflow-y-auto">
-          <Link href="/" className="text-lg font-bold text-white mb-6 block">
-            AgentTasks
-          </Link>
-          <nav className="flex flex-col gap-0.5 text-sm">
-            {NAV_ITEMS.map((item) =>
-              "children" in item && item.children ? (
-                <div key={item.label} className="mt-4">
-                  <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">
-                    {item.label}
-                  </div>
-                  {item.children.map((child) => (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      className="block py-1.5 px-2 rounded text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition-colors"
-                    >
-                      {child.label}
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="block py-1.5 px-2 rounded text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition-colors"
-                >
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className="min-h-dvh bg-[#141413] text-[#faf9f5]">
+        <div className="flex flex-col md:flex-row min-h-dvh">
+          {/* Desktop sidebar */}
+          <aside className="hidden md:flex w-56 border-r border-[#2a2a28] p-5 flex-col gap-1 fixed h-full">
+            <Link href="/" className="text-base font-bold text-[#d97757] mb-5 block tracking-tight">
+              AgentTasks
+            </Link>
+            <nav className="flex flex-col gap-0.5 text-sm">
+              {NAV.map((item) => (
+                <Link key={item.href} href={item.href}
+                  className="py-2 px-3 rounded-lg text-[#b0aea5] hover:text-[#faf9f5] hover:bg-[#1c1c1b] transition-colors">
                   {item.label}
                 </Link>
-              )
-            )}
-          </nav>
-        </aside>
+              ))}
+            </nav>
+          </aside>
 
-        {/* Main content */}
-        <main className="ml-64 flex-1 p-8 max-w-4xl">{children}</main>
+          {/* Main */}
+          <main className="flex-1 md:ml-56 pb-20 md:pb-8">
+            <header className="md:hidden sticky top-0 z-50 bg-[#141413]/90 backdrop-blur-lg border-b border-[#2a2a28] px-4 py-3">
+              <Link href="/" className="text-base font-bold text-[#d97757] tracking-tight">AgentTasks</Link>
+            </header>
+            <div className="px-4 py-6 md:px-8 md:py-8 max-w-2xl mx-auto md:mx-0">{children}</div>
+          </main>
+
+          {/* Mobile bottom tabs */}
+          <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#141413]/95 backdrop-blur-lg border-t border-[#2a2a28]">
+            <div className="flex justify-around py-2 pb-[env(safe-area-inset-bottom)]">
+              {NAV.map((item) => (
+                <Link key={item.href} href={item.href}
+                  className="flex flex-col items-center gap-0.5 py-1 px-3 text-[10px] text-[#b0aea5] active:text-[#d97757]">
+                  <span className="text-lg">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </nav>
+        </div>
       </body>
     </html>
   );

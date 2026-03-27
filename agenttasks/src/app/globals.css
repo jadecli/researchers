@@ -1,8 +1,24 @@
 @import "tailwindcss";
 
+/* Anthropic Design DNA — Dark Mode, Mobile-First */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --brand-dark: #141413;
+  --brand-light: #faf9f5;
+  --brand-mid-gray: #b0aea5;
+  --brand-light-gray: #e8e6dc;
+  --brand-orange: #d97757;
+  --brand-blue: #6a9bcc;
+  --brand-green: #788c5d;
+  --ui-bg: #141413;
+  --ui-surface: #1c1c1b;
+  --ui-surface-hover: #252524;
+  --ui-border: #2a2a28;
+  --ui-text: #faf9f5;
+  --ui-text-secondary: #b0aea5;
+  --ui-text-muted: #6b6961;
+  --ui-interactive: #d97757;
+  --background: var(--ui-bg);
+  --foreground: var(--ui-text);
 }
 
 @theme inline {
@@ -12,15 +28,16 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* { -webkit-tap-highlight-color: transparent; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  -webkit-font-smoothing: antialiased;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ui-border); border-radius: 2px; }
+:focus-visible { outline: 2px solid var(--brand-orange); outline-offset: 2px; border-radius: 4px; }
+::selection { background: rgba(217, 119, 87, 0.3); }
