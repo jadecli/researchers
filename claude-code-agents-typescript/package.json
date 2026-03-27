@@ -1,0 +1,32 @@
+{
+  "name": "@anthropic-skills/claude-code-agents",
+  "version": "0.1.0",
+  "description": "TypeScript port of claude-code-agents-python: iterative crawl campaigns, DSPy-style pipelines, plugin generation, and multi-language codegen",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "campaign": "tsx src/cli.ts campaign",
+    "generate-plugin": "tsx src/cli.ts generate-plugin",
+    "codegen": "tsx src/cli.ts codegen",
+    "cowork-task": "tsx src/cli.ts cowork-task"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "zod": "^3.23.0",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0"
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "campaign_name": "video-ai-documentation-crawl-campaign-2026",
+  "throttle_settings": {
+    "DOWNLOAD_DELAY": "2.2",
+    "CONCURRENT_REQUESTS": "1",
+    "CONCURRENT_REQUESTS_PER_DOMAIN": "1",
+    "AUTOTHROTTLE_START_DELAY": "2.2",
+    "AUTOTHROTTLE_TARGET_CONCURRENCY": "0.9",
+    "AUTOTHROTTLE_MAX_DELAY": "66",
+    "RETRY_TIMES": "5"
+  },
+  "quality_threshold": 0.65,
+  "dspy_campaign": {
+    "name": "video-ai-documentation-crawl-campaign-2026",
+    "description": "Video AI Documentation Crawl Campaign 2026",
+    "total_max_pages": 200,
+    "overall_quality_threshold": 0.65,
+    "improvement_iterations": 3,
+    "context_steering": "Extract video generation API endpoints and parameters; Map model capabilities and supported formats; Identify rate limits and throttle configurations; Catalog SDK examples for each platform",
+    "targets": [
+      {
+        "url": "https://app.klingai.com/llms.txt",
+        "spider": "docs_spider",
+        "priority": "critical",
+        "max_pages": 50,
+        "description": "Kling 3.0 \u2014 video AI generation docs",
+        "expected_content": "Video generation API, Model parameters and settings, SDK integration patterns",
+        "quality_threshold": 0.65
+      },
+      {
+        "url": "https://ai.google.dev/gemini-api/docs/llms.txt",
+        "spider": "docs_spider",
+        "priority": "critical",
+        "max_pages": 50,
+        "description": "Google Veo 3.1 \u2014 Gemini video generation API docs",
+        "expected_content": "Video generation API, Model parameters and settings, SDK integration patterns",
+        "quality_threshold": 0.65
+      },
+      {
+        "url": "https://docs.higgsfield.ai/llms.txt",
+        "spider": "docs_spider",
+        "priority": "critical",
+        "max_pages": 50,
+        "description": "Higgsfield \u2014 video AI platform docs",
+        "expected_content": "Video generation API, Model parameters and settings, SDK integration patterns",
+        "quality_threshold": 0.65
+      },
+      {
+        "url": "https://seed.bytedance.com/en/seedance2_0",
+        "spider": "docs_spider",
+        "priority": "high",
+        "max_pages": 50,
+        "description": "Seedance 2.0 \u2014 ByteDance video generation",
+        "expected_content": "Video generation API, Model parameters and settings, SDK integration patterns",
+        "quality_threshold": 0.65
+      }
+    ]
+  },
+  "direct_plan": {
+    "target_count": 4,
+    "total_pages": 180,
+    "budget_usd": 10.0,
+    "max_iterations": 3,
+    "quality_threshold": 0.65,
+    "targets": [
+      {
+        "url": "https://app.klingai.com/llms.txt",
+        "spider": "docs_spider",
+        "max_pages": 50,
+        "priority": 10
+      },
+      {
+        "url": "https://docs.higgsfield.ai/llms.txt",
+        "spider": "docs_spider",
+        "max_pages": 50,
+        "priority": 10
+      },
+      {
+        "url": "https://ai.google.dev/gemini-api/docs/llms.txt",
+        "spider": "docs_spider",
+        "max_pages": 50,
+        "priority": 9
+      },
+      {
+        "url": "https://seed.bytedance.com/en/seedance2_0",
+        "spider": "docs_spider",
+        "max_pages": 30,
+        "priority": 8
+      }
+    ]
+  },
+  "execution_status": "failed",
+  "results": [],
+  "error": "HeadlessRunner timed out after 15s"
+}
