@@ -1,0 +1,16 @@
+{
+  "name": "jadecli-researchers",
+  "private": true,
+  "description": "Monorepo scripts for 9 sub-repos. No dependencies — delegates to sub-repo package.json files.",
+  "scripts": {
+    "build": "cd agenttasks && npm run build",
+    "build:check": "cd agenttasks && npx tsc --noEmit",
+    "lint": "cd agenttasks && npm run lint",
+    "test:sdk": "cd claude-multi-agent-sdk && npx vitest run",
+    "test:dispatch": "cd claude-multi-agent-dispatch && npx vitest run",
+    "prebuild:verify": "cd agenttasks && npm install --silent && npm run build"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

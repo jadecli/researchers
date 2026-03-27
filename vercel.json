@@ -2,5 +2,6 @@
   "buildCommand": "cd agenttasks && npm run build",
   "outputDirectory": "agenttasks/.next",
   "installCommand": "cd agenttasks && npm install",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "ignoreCommand": "! git diff HEAD^ HEAD --quiet -- agenttasks/ vercel.json"
 }
