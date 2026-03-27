@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
@@ -11,6 +12,10 @@ from typing import Any
 
 from scrapy import Spider
 from scrapy.exceptions import DropItem
+
+from scrapy_researchers.bloom_filter import BloomFilter
+
+logger = logging.getLogger(__name__)
 
 
 class QualityScoringPipeline:
@@ -105,17 +110,72 @@ class QualityScoringPipeline:
 
 
 class DedupPipeline:
-    """Fingerprint-based deduplication pipeline."""
+    """Bloom filter-backed deduplication pipeline.
+
+    Replaces the previous in-memory SHA256 fingerprint set with a Bloom filter
+    for ~50x memory reduction at scale (100K items: ~120KB vs ~6.4MB).
+
+    Persists state to disk so duplicates are tracked across crawl runs,
+    complementing DeltaFetch's request-level dedup with content-level dedup.
+
+    Settings:
+        BLOOM_DEDUP_EXPECTED_ITEMS: Expected unique items (default 100_000)
+        BLOOM_DEDUP_FP_RATE: False positive rate (default 0.001)
+        BLOOM_DEDUP_PERSIST_PATH: Path to persist state (default .bloomstate/dedup.bloom)
+    """
 
     def __init__(self) -> None:
-        self.seen_fingerprints: set[str] = set()
+        self.bloom: BloomFilter | None = None
+        self.persist_path: str = ""
+        self._dupes_dropped = 0
+        self._items_seen = 0
+
+    def open_spider(self, spider: Spider) -> None:
+        settings = spider.crawler.settings
+        expected = settings.getint("BLOOM_DEDUP_EXPECTED_ITEMS", 100_000)
+        fp_rate = settings.getfloat("BLOOM_DEDUP_FP_RATE", 0.001)
+        self.persist_path = settings.get(
+            "BLOOM_DEDUP_PERSIST_PATH",
+            "scrapy_researchers/.bloomstate/dedup.bloom",
+        )
+
+        if Path(self.persist_path).exists():
+            try:
+                self.bloom = BloomFilter.load(self.persist_path)
+                spider.logger.info(
+                    f"DedupPipeline: loaded bloom filter ({self.bloom.count} items, "
+                    f"{self.bloom.memory_bytes}B, est FP: {self.bloom.estimated_fp_rate:.6f})"
+                )
+            except Exception as e:
+                spider.logger.warning(f"DedupPipeline: failed to load bloom state: {e}")
+                self.bloom = BloomFilter(expected, fp_rate)
+        else:
+            self.bloom = BloomFilter(expected, fp_rate)
+            spider.logger.info(
+                f"DedupPipeline: new bloom filter ({self.bloom.num_bits} bits, "
+                f"{self.bloom.num_hashes} hashes, {self.bloom.memory_bytes}B)"
+            )
 
     def process_item(self, item: dict[str, Any], spider: Spider) -> dict[str, Any]:
         fingerprint = self._compute_fingerprint(item)
-        if fingerprint in self.seen_fingerprints:
-            raise DropItem(f"Duplicate item: {item.get('url', 'unknown')}")
-        self.seen_fingerprints.add(fingerprint)
+        self._items_seen += 1
+
+        assert self.bloom is not None
+        if fingerprint in self.bloom:
+            self._dupes_dropped += 1
+            raise DropItem(f"Duplicate item (bloom): {item.get('url', 'unknown')}")
+
+        self.bloom.add(fingerprint)
         return item
+
+    def close_spider(self, spider: Spider) -> None:
+        if self.bloom and self.persist_path:
+            self.bloom.save(self.persist_path)
+            spider.logger.info(
+                f"DedupPipeline: saved bloom filter ({self.bloom.count} items, "
+                f"{self.bloom.memory_bytes}B). "
+                f"Session: {self._items_seen} seen, {self._dupes_dropped} dupes dropped"
+            )
 
     def _compute_fingerprint(self, item: dict[str, Any]) -> str:
         url = item.get("url", "")
