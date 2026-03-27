@@ -1,0 +1,17 @@
+{"category": "sdk_patterns", "finding": "CLAUDE.md in claude-cookbooks: 110 lines (target: <60)"}
+{"category": "sdk_patterns", "finding": "CLAUDE.md in claude-quickstarts: 61 lines (target: <60)"}
+{"category": "sdk_patterns", "finding": "CLAUDE.md in claude-code-action: 44 lines (target: <60)"}
+{"category": "sdk_patterns", "finding": "CLAUDE.md in claude-agent-sdk-python: 27 lines (target: <60)"}
+{"category": "sdk_patterns", "finding": "CLAUDE.md in claude-code-base-action: 58 lines (target: <60)"}
+{"category": "sdk_patterns", "finding": "FOUND tool_choice pattern in anthropic-sdk-ruby/lib/anthropic.rb"}
+{"category": "mcp_patterns", "finding": "FOUND outputSchema in python-sdk/README.md"}
+{"category": "mcp_patterns", "finding": "FOUND isError pattern in python-sdk/README.md"}
+{"category": "mcp_patterns", "finding": "FOUND outputSchema in ruby-sdk/README.md"}
+{"category": "mcp_patterns", "finding": "FOUND isError pattern in ruby-sdk/README.md"}
+{"category": "mcp_patterns", "finding": "FOUND outputSchema in ruby-sdk/AGENTS.md"}
+{"category": "mcp_patterns", "finding": "FOUND isError pattern in swift-sdk/README.md"}
+{"category": "safety_patterns", "finding": "FOUND InferenceAPI in safety-tooling/README.md"}
+{"category": "safety_patterns", "finding": "FOUND InferenceAPI in safety-tooling/CLAUDE.md"}
+{"category": "safety_patterns", "finding": "FOUND InferenceAPI in auditing-agents/src/__init__.py"}
+{"category": "safety_patterns", "finding": "FOUND InferenceAPI in alignment-faking-extensions/src/docgen.py"}
+{"category": "safety_patterns", "finding": "FOUND InferenceAPI in science-synth-facts/CLAUDE.md"}

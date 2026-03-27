@@ -1,29 +1,58 @@
 import { NextResponse } from "next/server";
-
-// Static data from our crawl results — would be replaced with Neon queries
-const CRAWL_STATS = {
-  sources: [
-    { name: "code.claude.com", pages: 71, avgQuality: 0.819, chars: 1790205 },
-    { name: "platform.claude.com", pages: 768, avgQuality: 0.706, chars: 24660594 },
-    { name: "neon.com", pages: 414, avgQuality: 0.816, chars: 4328822 },
-    { name: "vercel.com", pages: 1224, avgQuality: 0.792, chars: 10379903 },
-  ],
-  total: { pages: 2477, avgQuality: 0.77, chars: 41159524 },
-};
+import { neon } from "@neondatabase/serverless";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const source = searchParams.get("source");
-  const category = searchParams.get("category");
+  const limit = parseInt(searchParams.get("limit") ?? "100", 10);
 
-  let data = CRAWL_STATS.sources;
-  if (source) {
-    data = data.filter(s => s.name.includes(source));
+  const dbUrl = process.env.DATABASE_URL;
+
+  // If no DATABASE_URL, return static data as fallback
+  if (!dbUrl) {
+    return NextResponse.json({
+      pages: [
+        { url: "code.claude.com", domain: "code.claude.com", page_type: null, pages: 71, avg_quality: 0.819 },
+        { url: "platform.claude.com", domain: "platform.claude.com", page_type: null, pages: 768, avg_quality: 0.706 },
+        { url: "neon.com", domain: "neon.com", page_type: null, pages: 414, avg_quality: 0.816 },
+        { url: "vercel.com", domain: "vercel.com", page_type: null, pages: 1224, avg_quality: 0.792 },
+      ],
+      total: 2477,
+      source: "static_fallback",
+    });
   }
 
-  return NextResponse.json({
-    pages: data,
-    total: CRAWL_STATS.total,
-    filters: { source, category },
-  });
+  try {
+    const sql = neon(dbUrl);
+
+    if (source) {
+      const rows = await sql`
+        SELECT url, domain, page_type, first_seen, last_seen
+        FROM reporting.dim_page
+        WHERE is_current = true AND domain ILIKE ${"%" + source + "%"}
+        ORDER BY last_seen DESC NULLS LAST
+        LIMIT ${limit}
+      `;
+      return NextResponse.json({ pages: rows, total: rows.length, source });
+    }
+
+    // Aggregate by domain
+    const rows = await sql`
+      SELECT domain, count(*) as pages,
+        round(avg(ce.quality_score)::numeric, 3) as avg_quality
+      FROM reporting.dim_page dp
+      LEFT JOIN runtime.crawl_events ce ON ce.url = dp.url
+      WHERE dp.is_current = true
+      GROUP BY domain
+      ORDER BY pages DESC
+    `;
+
+    const total = rows.reduce((s: number, r: Record<string, unknown>) => s + Number(r.pages ?? 0), 0);
+    return NextResponse.json({ pages: rows, total, source: "neon_live" });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Database query failed", detail: String(err) },
+      { status: 500 }
+    );
+  }
 }
