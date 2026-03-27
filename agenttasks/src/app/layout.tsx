@@ -42,6 +42,15 @@ const NAV_ITEMS = [
   { label: "Pages", href: "/pages" },
   { label: "Rounds", href: "/rounds" },
   { label: "Tasks", href: "/tasks" },
+  {
+    label: "A/B Experiments",
+    children: [
+      { label: "All Experiments", href: "/experiments" },
+      { label: "Spotify Tool Strategy", href: "/experiments/spotify-tool-strategy-v1" },
+      { label: "PTC vs Standard", href: "/experiments/spotify-ptc-h2h-v1" },
+      { label: "Thinking vs Tool Search", href: "/experiments/spotify-quality-v1" },
+    ],
+  },
 ];
 
 export default function RootLayout({
