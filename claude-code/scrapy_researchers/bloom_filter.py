@@ -7,15 +7,23 @@ Key properties:
 - No false negatives: if it says "not seen", it truly hasn't been seen
 - Rare false positives: configurable via expected_items and fp_rate
 - Persistent: save/load to disk for cross-run deduplication
+
+Spider-specific profiles:
+- platform/claude_com: conservative FP rate, smaller capacity (doc sites)
+- anthropic: large capacity (sitemap discovers many URLs)
+- github: item-level only (API-driven, no HTTP dedup needed)
+- llms_full: minimal (single-file parse, no link following)
+- docs: moderate defaults (generic doc sites)
 """
 
 from __future__ import annotations
 
 import hashlib
 import math
-import os
 import struct
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 class BloomFilter:
@@ -164,3 +172,137 @@ class BloomFilter:
             f"hashes={self.num_hashes}, memory={self.memory_bytes}B, "
             f"est_fp={self.estimated_fp_rate:.6f})"
         )
+
+
+@dataclass(frozen=True)
+class BloomProfile:
+    """Spider-specific bloom filter configuration.
+
+    Each profile tunes expected_urls, fp_rate, and persist paths based on
+    the crawl pattern of the spider:
+    - High-volume sitemaps need large capacity, tolerate higher FP
+    - Doc sites need strict FP to avoid missing updated pages
+    - Single-file parsers need minimal bloom overhead
+    """
+
+    expected_urls: int
+    fp_rate: float
+    persist_dir: str
+    request_dedup: bool = True   # whether to use BloomDupeFilter for requests
+    item_dedup: bool = True      # whether to use bloom-backed DedupPipeline
+    download_delay: float = 2.0
+    autothrottle_start: float = 2.0
+    autothrottle_max: float = 60.0
+    retry_times: int = 5
+
+    def dupefilter_path(self, spider_name: str) -> str:
+        return f"{self.persist_dir}/{spider_name}_dupefilter.bloom"
+
+    def dedup_path(self, spider_name: str) -> str:
+        return f"{self.persist_dir}/{spider_name}_dedup.bloom"
+
+    def to_scrapy_settings(self, spider_name: str) -> dict[str, Any]:
+        """Convert profile to Scrapy settings dict for spider custom_settings."""
+        settings: dict[str, Any] = {
+            "BLOOM_EXPECTED_URLS": self.expected_urls,
+            "BLOOM_FP_RATE": self.fp_rate,
+            "BLOOM_PERSIST_PATH": self.dupefilter_path(spider_name),
+            "BLOOM_DEDUP_EXPECTED_ITEMS": self.expected_urls,
+            "BLOOM_DEDUP_FP_RATE": self.fp_rate,
+            "BLOOM_DEDUP_PERSIST_PATH": self.dedup_path(spider_name),
+            "DOWNLOAD_DELAY": self.download_delay,
+            "AUTOTHROTTLE_START_DELAY": self.autothrottle_start,
+            "AUTOTHROTTLE_MAX_DELAY": self.autothrottle_max,
+            "RETRY_TIMES": self.retry_times,
+        }
+        if not self.request_dedup:
+            settings["DUPEFILTER_CLASS"] = "scrapy.dupefilters.RFPDupeFilter"
+        return settings
+
+
+# ── Spider-specific profiles ────────────────────────────────────
+# Tuned based on each spider's crawl pattern and target site behavior.
+
+BLOOM_PROFILES: dict[str, BloomProfile] = {
+    # platform.claude.com: strict dedup, conservative politeness to avoid blocks.
+    # ~500 doc pages, iterative re-crawls need cross-run persistence.
+    "platform_spider": BloomProfile(
+        expected_urls=5_000,
+        fp_rate=0.0005,     # stricter — missing a changed page is costly
+        persist_dir="scrapy_researchers/.bloomstate",
+        download_delay=3.0,
+        autothrottle_start=3.0,
+        autothrottle_max=120.0,
+        retry_times=7,
+    ),
+
+    # code.claude.com: moderate. Generic docs spider, ~100 pages per llms.txt.
+    "docs_spider": BloomProfile(
+        expected_urls=10_000,
+        fp_rate=0.001,
+        persist_dir="scrapy_researchers/.bloomstate",
+        download_delay=2.0,
+        autothrottle_start=2.0,
+        autothrottle_max=60.0,
+    ),
+
+    # anthropic.com sitemap: high volume. Sitemap can expose 1000+ URLs.
+    # Slightly relaxed FP rate acceptable — pages are public/stable.
+    "anthropic_spider": BloomProfile(
+        expected_urls=50_000,
+        fp_rate=0.002,
+        persist_dir="scrapy_researchers/.bloomstate",
+        download_delay=2.0,
+        autothrottle_start=2.0,
+        autothrottle_max=60.0,
+    ),
+
+    # claude.com: similar to platform — doc site, avoid blocks.
+    "claude_com_spider": BloomProfile(
+        expected_urls=5_000,
+        fp_rate=0.0005,
+        persist_dir="scrapy_researchers/.bloomstate",
+        download_delay=3.0,
+        autothrottle_start=3.0,
+        autothrottle_max=120.0,
+        retry_times=7,
+    ),
+
+    # llms-full.txt: single file download, no link following.
+    # Request-level bloom unnecessary (DEPTH_LIMIT=0). Item dedup only.
+    "llms_full_spider": BloomProfile(
+        expected_urls=1_000,
+        fp_rate=0.001,
+        persist_dir="scrapy_researchers/.bloomstate",
+        request_dedup=False,
+        item_dedup=True,
+        download_delay=2.0,
+        autothrottle_start=2.0,
+        autothrottle_max=60.0,
+    ),
+
+    # GitHub API spider: no HTTP-level dedup needed (uses gh CLI, not Scrapy downloader).
+    # Item-level bloom catches duplicate file content across re-crawls.
+    "github_spider": BloomProfile(
+        expected_urls=10_000,
+        fp_rate=0.001,
+        persist_dir="scrapy_researchers/.bloomstate",
+        request_dedup=False,
+        item_dedup=True,
+        download_delay=0.0,   # API has its own rate limiter
+        autothrottle_start=0.0,
+        autothrottle_max=0.0,
+    ),
+}
+
+# Fallback for any spider not explicitly profiled
+DEFAULT_BLOOM_PROFILE = BloomProfile(
+    expected_urls=100_000,
+    fp_rate=0.001,
+    persist_dir="scrapy_researchers/.bloomstate",
+)
+
+
+def get_bloom_profile(spider_name: str) -> BloomProfile:
+    """Look up the bloom profile for a spider, falling back to defaults."""
+    return BLOOM_PROFILES.get(spider_name, DEFAULT_BLOOM_PROFILE)

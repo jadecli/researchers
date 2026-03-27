@@ -7,7 +7,8 @@ with a Bloom filter. This provides:
   vs ~6.4MB for SHA256 set of 100K fingerprints
 - Persistence across crawl runs via disk save/load
 
-Configure in settings.py:
+Settings are automatically injected by BaseResearchSpider.update_settings()
+from the spider's BloomProfile. Manual override via settings.py:
     DUPEFILTER_CLASS = "scrapy_researchers.bloom_dupefilter.BloomDupeFilter"
     BLOOM_EXPECTED_URLS = 100_000
     BLOOM_FP_RATE = 0.001
@@ -30,7 +31,12 @@ logger = logging.getLogger(__name__)
 
 
 class BloomDupeFilter(BaseDupeFilter):
-    """Bloom filter-based request duplicate filter for Scrapy."""
+    """Bloom filter-based request duplicate filter for Scrapy.
+
+    Reads BLOOM_EXPECTED_URLS, BLOOM_FP_RATE, and BLOOM_PERSIST_PATH
+    from Scrapy settings. These are set per-spider by BloomProfile via
+    BaseResearchSpider.update_settings().
+    """
 
     def __init__(
         self,
@@ -66,31 +72,43 @@ class BloomDupeFilter(BaseDupeFilter):
             try:
                 self.bloom = BloomFilter.load(self.persist_path)
                 logger.info(
-                    f"Loaded bloom filter from {self.persist_path}: "
-                    f"{self.bloom.count} URLs, {self.bloom.memory_bytes}B"
+                    "BloomDupeFilter: loaded %s (%d URLs, %dB, est FP %.6f)",
+                    self.persist_path,
+                    self.bloom.count,
+                    self.bloom.memory_bytes,
+                    self.bloom.estimated_fp_rate,
                 )
             except Exception as e:
-                logger.warning(f"Failed to load bloom state, creating fresh: {e}")
+                logger.warning("BloomDupeFilter: failed to load %s: %s", self.persist_path, e)
                 self.bloom = BloomFilter(self.expected_urls, self.fp_rate)
         else:
             self.bloom = BloomFilter(self.expected_urls, self.fp_rate)
             logger.info(
-                f"Created bloom filter: {self.bloom.num_bits} bits, "
-                f"{self.bloom.num_hashes} hashes, {self.bloom.memory_bytes}B"
+                "BloomDupeFilter: new filter (%d bits, %d hashes, %dB, capacity %d, FP %.4f)",
+                self.bloom.num_bits,
+                self.bloom.num_hashes,
+                self.bloom.memory_bytes,
+                self.expected_urls,
+                self.fp_rate,
             )
 
     def close(self, reason: str = "") -> None:
         """Persist bloom state to disk on spider close."""
-        if self.bloom and self.persist_path:
+        if not self.bloom:
+            return
+        if self.persist_path:
             self.bloom.save(self.persist_path)
             logger.info(
-                f"Saved bloom filter to {self.persist_path}: "
-                f"{self.bloom.count} URLs, {self.bloom.memory_bytes}B"
+                "BloomDupeFilter: saved %s (%d URLs, %dB)",
+                self.persist_path,
+                self.bloom.count,
+                self.bloom.memory_bytes,
             )
         logger.info(
-            f"BloomDupeFilter stats: {self._requests_seen} requests seen, "
-            f"{self._dupes_found} duplicates filtered, "
-            f"est FP rate: {self.bloom.estimated_fp_rate:.6f}" if self.bloom else ""
+            "BloomDupeFilter: %d requests seen, %d duplicates filtered, est FP %.6f",
+            self._requests_seen,
+            self._dupes_found,
+            self.bloom.estimated_fp_rate,
         )
 
     def request_seen(self, request: Request) -> bool:
@@ -105,7 +123,7 @@ class BloomDupeFilter(BaseDupeFilter):
         if fp in self.bloom:
             self._dupes_found += 1
             if self.debug:
-                logger.debug(f"Filtered duplicate request: {request.url}")
+                logger.debug("Filtered duplicate request: %s", request.url)
             return True
 
         self.bloom.add(fp)
@@ -124,4 +142,4 @@ class BloomDupeFilter(BaseDupeFilter):
 
     def log(self, request: Request, spider: Any) -> None:
         if self.debug:
-            logger.debug(f"Filtered duplicate: {request.url}")
+            logger.debug("Filtered duplicate: %s", request.url)

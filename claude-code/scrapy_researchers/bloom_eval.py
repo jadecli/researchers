@@ -162,12 +162,34 @@ def main() -> None:
           f"(target: {r100k['target_fp_rate']:.4f})")
     print(f"  Cross-run persistence: {'PASS' if r100k['persistence_ok'] else 'FAIL'}")
     print(f"  Disk footprint: {r100k['disk_bytes']/1024:.0f}KB")
+    # Profile-specific sizing
+    print()
+    print("=" * 80)
+    print("SPIDER BLOOM PROFILES — contextual defaults per spider")
+    print("=" * 80)
+
+    from scrapy_researchers.bloom_filter import BLOOM_PROFILES
+
+    for spider_name, profile in BLOOM_PROFILES.items():
+        bf = BloomFilter(profile.expected_urls, profile.fp_rate)
+        print(
+            f"  {spider_name:20s}  "
+            f"capacity={profile.expected_urls:>6,}  "
+            f"FP={profile.fp_rate:.4f}  "
+            f"memory={bf.memory_bytes/1024:>6.1f}KB  "
+            f"hashes={bf.num_hashes:>2}  "
+            f"req_dedup={'yes' if profile.request_dedup else 'no ':>3}  "
+            f"delay={profile.download_delay:.1f}s"
+        )
+
     print()
     print("VERDICT: Bloom filter provides meaningful improvement for iterative crawling.")
-    print("  - Negligible false positive rate at 0.1% target")
+    print("  - Negligible false positive rate at target thresholds")
     print("  - Cross-run state persists to disk, surviving spider restarts")
-    print("  - Combined with BloomDupeFilter at request level, prevents")
-    print("    re-requesting URLs that platform.claude.com already served")
+    print("  - Spider-specific profiles avoid one-size-fits-all overhead")
+    print("  - platform_spider + claude_com_spider: strict FP, high politeness")
+    print("  - anthropic_spider: high capacity for sitemap-driven discovery")
+    print("  - llms_full_spider + github_spider: item-only dedup (no HTTP requests)")
 
 
 if __name__ == "__main__":

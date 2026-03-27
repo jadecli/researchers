@@ -28,16 +28,11 @@ DOWNLOAD_WARNSIZE = 5_242_880  # 5 MB — warn in logs
 USER_AGENT = "ScrapyResearchers/0.1 (+https://github.com/researchers/scrapy-researchers)"
 
 # ── Bloom filter duplicate filtering ────────────────────────────
-# Request-level: replaces Scrapy's default set-based RFPDupeFilter
+# Request-level: replaces Scrapy's default set-based RFPDupeFilter.
+# Per-spider bloom parameters (capacity, FP rate, persist path) are
+# injected automatically by BloomProfile via BaseResearchSpider.update_settings().
+# See bloom_filter.BLOOM_PROFILES for spider-specific tuning.
 DUPEFILTER_CLASS = "scrapy_researchers.bloom_dupefilter.BloomDupeFilter"
-BLOOM_EXPECTED_URLS = 100_000       # expected unique URLs across all runs
-BLOOM_FP_RATE = 0.001               # 0.1% false positive rate
-BLOOM_PERSIST_PATH = "scrapy_researchers/.bloomstate/dupefilter.bloom"
-
-# Item-level: DedupPipeline bloom filter (content fingerprints)
-BLOOM_DEDUP_EXPECTED_ITEMS = 100_000
-BLOOM_DEDUP_FP_RATE = 0.001
-BLOOM_DEDUP_PERSIST_PATH = "scrapy_researchers/.bloomstate/dedup.bloom"
 
 # ── Downloader middlewares ───────────────────────────────────────
 DOWNLOADER_MIDDLEWARES = {

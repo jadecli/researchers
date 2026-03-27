@@ -96,10 +96,13 @@ class DocsSpider(BaseResearchSpider):
         """Callback wrapper for doc page parsing that also follows links."""
         yield from self._parse_doc_page(response)
 
-        # Follow internal links
+        # Follow internal links — bloom filter handles cross-run dedup,
+        # per-page set prevents yielding the same link twice from one page
+        seen_on_page: set[str] = set()
         for link in response.css("a[href]::attr(href)").getall():
-            absolute_url = urljoin(response.url, link)
-            if self._is_same_domain(absolute_url, response.url):
+            absolute_url = urljoin(response.url, link).split("#")[0]
+            if absolute_url and absolute_url not in seen_on_page and self._is_same_domain(absolute_url, response.url):
+                seen_on_page.add(absolute_url)
                 yield scrapy.Request(
                     absolute_url,
                     callback=self._parse_doc_page_callback,

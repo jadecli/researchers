@@ -168,6 +168,96 @@ class TestBloomDupeFilter:
         Path(path).unlink()
 
 
+class TestBloomProfile:
+    """Tests for spider-specific bloom filter profiles."""
+
+    def test_all_spiders_have_profiles(self) -> None:
+        from scrapy_researchers.bloom_filter import BLOOM_PROFILES
+
+        expected_spiders = [
+            "platform_spider", "docs_spider", "anthropic_spider",
+            "claude_com_spider", "llms_full_spider", "github_spider",
+        ]
+        for name in expected_spiders:
+            assert name in BLOOM_PROFILES, f"Missing profile for {name}"
+
+    def test_get_bloom_profile_known(self) -> None:
+        from scrapy_researchers.bloom_filter import get_bloom_profile
+
+        profile = get_bloom_profile("platform_spider")
+        assert profile.expected_urls == 5_000
+        assert profile.fp_rate == 0.0005
+        assert profile.request_dedup is True
+
+    def test_get_bloom_profile_unknown_falls_back(self) -> None:
+        from scrapy_researchers.bloom_filter import get_bloom_profile, DEFAULT_BLOOM_PROFILE
+
+        profile = get_bloom_profile("nonexistent_spider")
+        assert profile is DEFAULT_BLOOM_PROFILE
+
+    def test_github_spider_no_request_dedup(self) -> None:
+        """GitHub spider uses API, not HTTP — request-level bloom is disabled."""
+        from scrapy_researchers.bloom_filter import get_bloom_profile
+
+        profile = get_bloom_profile("github_spider")
+        assert profile.request_dedup is False
+        assert profile.item_dedup is True
+
+    def test_llms_full_no_request_dedup(self) -> None:
+        """llms_full downloads a single file — no link following."""
+        from scrapy_researchers.bloom_filter import get_bloom_profile
+
+        profile = get_bloom_profile("llms_full_spider")
+        assert profile.request_dedup is False
+
+    def test_platform_strict_fp(self) -> None:
+        """Platform spider needs stricter FP to catch page updates."""
+        from scrapy_researchers.bloom_filter import get_bloom_profile
+
+        platform = get_bloom_profile("platform_spider")
+        docs = get_bloom_profile("docs_spider")
+        assert platform.fp_rate < docs.fp_rate
+
+    def test_anthropic_high_capacity(self) -> None:
+        """Anthropic sitemap discovers many URLs — needs larger bloom."""
+        from scrapy_researchers.bloom_filter import get_bloom_profile
+
+        anthropic = get_bloom_profile("anthropic_spider")
+        platform = get_bloom_profile("platform_spider")
+        assert anthropic.expected_urls > platform.expected_urls
+
+    def test_to_scrapy_settings(self) -> None:
+        from scrapy_researchers.bloom_filter import get_bloom_profile
+
+        profile = get_bloom_profile("platform_spider")
+        settings = profile.to_scrapy_settings("platform_spider")
+
+        assert settings["BLOOM_EXPECTED_URLS"] == 5_000
+        assert settings["BLOOM_FP_RATE"] == 0.0005
+        assert "platform_spider_dupefilter.bloom" in settings["BLOOM_PERSIST_PATH"]
+        assert "platform_spider_dedup.bloom" in settings["BLOOM_DEDUP_PERSIST_PATH"]
+
+    def test_to_scrapy_settings_disables_bloom_dupefilter(self) -> None:
+        from scrapy_researchers.bloom_filter import get_bloom_profile
+
+        profile = get_bloom_profile("github_spider")
+        settings = profile.to_scrapy_settings("github_spider")
+        assert settings["DUPEFILTER_CLASS"] == "scrapy.dupefilters.RFPDupeFilter"
+
+    def test_profile_paths_are_per_spider(self) -> None:
+        """Each spider gets its own bloom state file — no conflicts."""
+        from scrapy_researchers.bloom_filter import BLOOM_PROFILES
+
+        paths = set()
+        for name, profile in BLOOM_PROFILES.items():
+            df_path = profile.dupefilter_path(name)
+            dd_path = profile.dedup_path(name)
+            assert df_path not in paths, f"Duplicate path: {df_path}"
+            assert dd_path not in paths, f"Duplicate path: {dd_path}"
+            paths.add(df_path)
+            paths.add(dd_path)
+
+
 class TestDedupPipeline:
     """Tests for the bloom filter-backed item dedup pipeline."""
 
