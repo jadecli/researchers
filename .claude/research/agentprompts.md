@@ -1,7 +1,7 @@
 # Agentprompts: Dynamic Prompt Optimization for Agents
 
 > Research note from Claude Code session: 2026-03-27
-> Status: Conceptual — not yet implemented
+> Status: P2 — Conceptual, not yet implemented
 > Related: Claude prompting best practices, Claude system prompts, DSPy
 > References:
 > - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
@@ -130,7 +130,7 @@ best_practices:
   - examples: 2             # Few-shot from demonstrations
 
 claude_version_floor: "opus-4-6"
-system_prompt_version: "2025-03-27"
+system_prompt_version: "2026-03-27"
 dspy_compiled: "2026-03-27"
 ```
 

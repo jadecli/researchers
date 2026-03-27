@@ -1,7 +1,7 @@
 # Agentcommits: Extending Conventional Commits for Agent Workflows
 
 > Research note from Claude Code session: 2026-03-27
-> Status: Conceptual — not yet implemented
+> Status: P2 — Conceptual, not yet implemented
 > Related: agentskills.io, agenttasks specification, conventional commits
 
 ## Summary
