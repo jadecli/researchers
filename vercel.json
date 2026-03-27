@@ -1,6 +1,3 @@
 {
-  "buildCommand": "cd agenttasks && npm run build",
-  "outputDirectory": "agenttasks/.next",
-  "installCommand": "cd agenttasks && npm install",
   "framework": "nextjs"
 }
