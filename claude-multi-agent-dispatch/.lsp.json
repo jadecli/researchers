@@ -1,0 +1,24 @@
+{
+  "typescript": {
+    "enable": true,
+    "tsserver": {
+      "path": "node_modules/.bin/tsserver"
+    },
+    "format": {
+      "enable": true,
+      "options": {
+        "tabSize": 2,
+        "insertSpaces": true,
+        "semicolons": "insert"
+      }
+    },
+    "diagnostics": {
+      "enable": true,
+      "ignoredCodes": []
+    },
+    "preferences": {
+      "importModuleSpecifier": "non-relative",
+      "quoteStyle": "single"
+    }
+  }
+}

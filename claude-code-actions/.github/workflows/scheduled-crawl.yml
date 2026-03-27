@@ -1,0 +1,109 @@
+name: Scheduled Crawl
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Target URL or domain to crawl"
+        required: true
+        type: string
+      iterations:
+        description: "Number of improvement iterations"
+        required: false
+        default: "3"
+        type: string
+      spider:
+        description: "Spider name to use"
+        required: false
+        default: "default"
+        type: choice
+        options:
+          - default
+          - deep
+          - breadth
+          - api
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[all]"
+
+      - name: Determine crawl target
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "url=${{ inputs.target }}" >> "$GITHUB_OUTPUT"
+            echo "iterations=${{ inputs.iterations }}" >> "$GITHUB_OUTPUT"
+            echo "spider=${{ inputs.spider }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=$(cat crawl-targets.txt 2>/dev/null | head -1 || echo 'https://example.com')" >> "$GITHUB_OUTPUT"
+            echo "iterations=3" >> "$GITHUB_OUTPUT"
+            echo "spider=default" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run iterative crawl with Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            Run an iterative crawl against ${{ steps.target.outputs.url }}
+            using the "${{ steps.target.outputs.spider }}" spider.
+
+            Perform ${{ steps.target.outputs.iterations }} improvement iterations:
+            1. Execute the crawl: bash scripts/run-crawl.sh "${{ steps.target.outputs.url }}" "${{ steps.target.outputs.spider }}"
+            2. Check quality: python scripts/check-quality.py --threshold 0.85
+            3. If quality is below threshold, analyze failures and improve the spider code
+            4. Repeat until quality passes or iterations are exhausted
+
+            After all iterations, generate a summary of what changed and quality scores.
+          max_turns: 20
+
+      - name: Upload crawl results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crawl-results-${{ github.run_id }}
+          path: |
+            output/
+            reports/
+          retention-days: 30
+
+      - name: Post Slack summary
+        if: always()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: |
+          python -c "
+          from integrations.slack_reporter import SlackReporter
+          reporter = SlackReporter()
+          reporter.post_crawl_summary(
+              target='${{ steps.target.outputs.url }}',
+              spider='${{ steps.target.outputs.spider }}',
+              iterations=int('${{ steps.target.outputs.iterations }}'),
+              run_url='${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+          )
+          "

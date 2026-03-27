@@ -1,0 +1,243 @@
+stages:
+  - crawl
+  - improve
+  - test
+  - report
+  - publish
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  PYTHON_VERSION: "3.12"
+
+.python-setup: &python-setup
+  image: python:${PYTHON_VERSION}-slim
+  cache:
+    key: pip-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .pip-cache/
+  before_script:
+    - pip install -e ".[all]"
+
+# --------------- CRAWL STAGE ---------------
+
+scheduled-crawl:
+  <<: *python-setup
+  stage: crawl
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+  variables:
+    CRAWL_TARGET: "${CRAWL_TARGET:-https://example.com}"
+    SPIDER: "${SPIDER:-default}"
+    ITERATIONS: "${ITERATIONS:-3}"
+  script:
+    - mkdir -p output reports
+    - |
+      for i in $(seq 1 "${ITERATIONS}"); do
+        echo "=== Iteration ${i}/${ITERATIONS} ==="
+        bash scripts/run-crawl.sh "${CRAWL_TARGET}" "${SPIDER}"
+        if python scripts/check-quality.py --spider "${SPIDER}" --threshold 0.85; then
+          echo "Quality gate passed at iteration ${i}"
+          break
+        fi
+        echo "Quality below threshold, continuing..."
+      done
+  artifacts:
+    paths:
+      - output/
+      - reports/
+    expire_in: 30 days
+
+# --------------- IMPROVE STAGE ---------------
+
+.improve-template: &improve-template
+  <<: *python-setup
+  stage: improve
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+  variables:
+    ITERATIONS: "${ITERATIONS:-5}"
+  script:
+    - mkdir -p output reports
+    - |
+      for i in $(seq 1 "${ITERATIONS}"); do
+        echo "=== ${SPIDER} iteration ${i}/${ITERATIONS} ==="
+        bash scripts/run-crawl.sh "$(head -1 crawl-targets.txt 2>/dev/null || echo https://example.com)" "${SPIDER}"
+        python scripts/check-quality.py --spider "${SPIDER}" --threshold 0.85 \
+          --output "output/${SPIDER}/quality.json" || true
+      done
+  artifacts:
+    paths:
+      - output/
+    expire_in: 14 days
+
+improve-default:
+  <<: *improve-template
+  variables:
+    SPIDER: "default"
+
+improve-deep:
+  <<: *improve-template
+  variables:
+    SPIDER: "deep"
+
+improve-breadth:
+  <<: *improve-template
+  variables:
+    SPIDER: "breadth"
+
+improve-api:
+  <<: *improve-template
+  variables:
+    SPIDER: "api"
+
+# --------------- TEST STAGE ---------------
+
+test-python:
+  <<: *python-setup
+  stage: test
+  script:
+    - ruff check .
+    - mypy scripts/ chrome/ integrations/ --ignore-missing-imports
+    - pytest tests/ -v --tb=short
+  rules:
+    - if: '$CI_MERGE_REQUEST_ID'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+test-lsp-configs:
+  <<: *python-setup
+  stage: test
+  script:
+    - python lsp_setup/verify_lsp.py
+  rules:
+    - if: '$CI_MERGE_REQUEST_ID'
+      changes:
+        - lsp_setup/**/*
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - lsp_setup/**/*
+
+test-multi-lang:
+  stage: test
+  image: ubuntu:22.04
+  before_script:
+    - apt-get update && apt-get install -y python3 python3-pip nodejs npm golang-go
+    - pip3 install -e ".[dev]"
+  script:
+    - |
+      LANGUAGES="python typescript go"
+      FAILED=0
+      for lang in ${LANGUAGES}; do
+        echo "=== Testing ${lang} extractor ==="
+        if [ -d "extractors/${lang}" ]; then
+          case "${lang}" in
+            python)   pytest "extractors/python/" -v || FAILED=$((FAILED+1)) ;;
+            typescript) npm test --prefix "extractors/typescript" || FAILED=$((FAILED+1)) ;;
+            go)       cd "extractors/go" && go test ./... && cd ../.. || FAILED=$((FAILED+1)) ;;
+          esac
+        else
+          echo "Extractor directory not found, skipping"
+        fi
+      done
+      if [ "${FAILED}" -gt 0 ]; then
+        echo "${FAILED} language(s) failed"
+        exit 1
+      fi
+  rules:
+    - if: '$CI_MERGE_REQUEST_ID'
+      changes:
+        - extractors/**/*
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - extractors/**/*
+
+# --------------- REPORT STAGE ---------------
+
+quality-report:
+  <<: *python-setup
+  stage: report
+  script:
+    - mkdir -p output reports
+    - |
+      for spider in default deep breadth api; do
+        mkdir -p "output/${spider}"
+        python scripts/check-quality.py \
+          --spider "${spider}" --threshold 0.0 \
+          --output "output/${spider}/quality.json" || true
+      done
+    - python scripts/generate-report.py \
+        --title "Quality Report - ${CI_COMMIT_SHORT_SHA}" \
+        --output reports/quality-dashboard.html \
+        --include-trends
+  artifacts:
+    paths:
+      - reports/quality-dashboard.html
+    expire_in: 90 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+
+slack-notify:
+  <<: *python-setup
+  stage: report
+  needs: ["quality-report"]
+  script:
+    - |
+      python -c "
+      from integrations.slack_reporter import SlackReporter
+      reporter = SlackReporter()
+      reporter.post_quality_alert(
+          report_path='reports/quality-dashboard.html',
+          run_url='${CI_PIPELINE_URL}'
+      )
+      "
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: on_success
+
+# --------------- PUBLISH STAGE ---------------
+
+plugin-publish:
+  <<: *python-setup
+  stage: publish
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+  variables:
+    PLUGIN_NAME: "${PLUGIN_NAME}"
+    PLUGIN_VERSION: "${PLUGIN_VERSION}"
+  script:
+    - |
+      PLUGIN_DIR="plugins/${PLUGIN_NAME}"
+
+      # Validate
+      test -d "${PLUGIN_DIR}" || { echo "Plugin directory not found"; exit 1; }
+      test -f "${PLUGIN_DIR}/manifest.json" || { echo "Missing manifest.json"; exit 1; }
+
+      ruff check "${PLUGIN_DIR}" || exit 1
+
+      python -c "
+      import json, sys
+      with open('${PLUGIN_DIR}/manifest.json') as f:
+          m = json.load(f)
+      required = ['name', 'version', 'description', 'entry_point']
+      missing = [k for k in required if k not in m]
+      if missing:
+          print(f'Missing manifest fields: {missing}')
+          sys.exit(1)
+      print(f'Plugin {m[\"name\"]} v{m[\"version\"]} validated')
+      "
+
+      # Run tests if present
+      if [ -f "${PLUGIN_DIR}/test_plugin.py" ]; then
+        pytest "${PLUGIN_DIR}/test_plugin.py" -v
+      fi
+
+      # Tag
+      git tag "plugin/${PLUGIN_NAME}/v${PLUGIN_VERSION}"
+      git push origin "plugin/${PLUGIN_NAME}/v${PLUGIN_VERSION}"
+    - echo "Plugin ${PLUGIN_NAME} v${PLUGIN_VERSION} published"

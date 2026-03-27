@@ -1,0 +1,8 @@
+{"timestamp": "2026-03-27T01:29:04.625425", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/zero-data-retention.md", "quality_score": 0.7419, "status": 200, "content_length": 5070}
+{"timestamp": "2026-03-27T01:29:07.568694", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/web-scheduled-tasks.md", "quality_score": 0.7767, "status": 200, "content_length": 9202}
+{"timestamp": "2026-03-27T01:29:10.003262", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/vs-code.md", "quality_score": 0.9274, "status": 200, "content_length": 30407}
+{"timestamp": "2026-03-27T01:29:12.982633", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/voice-dictation.md", "quality_score": 0.8967, "status": 200, "content_length": 7481}
+{"timestamp": "2026-03-27T01:29:15.268219", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/troubleshooting.md", "quality_score": 0.8817, "status": 200, "content_length": 34301}
+{"timestamp": "2026-03-27T01:29:17.667325", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/tools-reference.md", "quality_score": 0.8469, "status": 200, "content_length": 6760}
+{"timestamp": "2026-03-27T01:29:21.237827", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/terminal-config.md", "quality_score": 0.7673, "status": 200, "content_length": 4558}
+{"timestamp": "2026-03-27T01:29:23.377311", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/sub-agents.md", "quality_score": 0.8817, "status": 200, "content_length": 44049}

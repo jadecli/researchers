@@ -1,0 +1,14 @@
+allowed_domains:
+  - anthropic.com
+  - claude.ai
+  - claude.com
+  - code.claude.com
+  - platform.claude.com
+  - github.com
+  - pypi.org
+  - npmjs.com
+
+blocked_patterns:
+  - '*.internal.*'
+  - '*.local'
+  - '*.corp.*'

@@ -1,0 +1,68 @@
+name: Quality Report
+
+on:
+  schedule:
+    - cron: "0 6 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e "."
+
+      - name: Collect quality data
+        run: |
+          mkdir -p output reports
+          for spider in default deep breadth api; do
+            mkdir -p "output/${spider}"
+            python scripts/check-quality.py \
+              --spider "${spider}" \
+              --threshold 0.0 \
+              --output "output/${spider}/quality.json" || true
+          done
+
+      - name: Generate HTML dashboard
+        run: |
+          python scripts/generate-report.py \
+            --title "Weekly Quality Report - $(date +%Y-%m-%d)" \
+            --output reports/weekly-quality.html \
+            --include-trends
+
+      - name: Upload dashboard artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-dashboard-${{ github.run_id }}
+          path: reports/weekly-quality.html
+          retention-days: 90
+
+      - name: Post to Slack
+        if: always()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: |
+          python -c "
+          from integrations.slack_reporter import SlackReporter
+          reporter = SlackReporter()
+          reporter.post_quality_alert(
+              report_path='reports/weekly-quality.html',
+              run_url='${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+          )
+          "

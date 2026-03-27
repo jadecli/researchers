@@ -1,0 +1,129 @@
+name: Multi-Language CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "extractors/**"
+      - "lsp_setup/**"
+  pull_request:
+    paths:
+      - "extractors/**"
+      - "lsp_setup/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test-extractors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - name: python
+            setup: "pip install -e '.[dev]'"
+            test: "pytest extractors/python/ -v"
+          - name: typescript
+            setup: "npm ci --prefix extractors/typescript"
+            test: "npm test --prefix extractors/typescript"
+          - name: go
+            setup: "cd extractors/go && go mod download"
+            test: "cd extractors/go && go test ./..."
+          - name: rust
+            setup: "cd extractors/rust && cargo build"
+            test: "cd extractors/rust && cargo test"
+          - name: java
+            setup: "cd extractors/java && mvn dependency:resolve -q"
+            test: "cd extractors/java && mvn test -q"
+          - name: kotlin
+            setup: "cd extractors/kotlin && gradle dependencies -q"
+            test: "cd extractors/kotlin && gradle test"
+          - name: csharp
+            setup: "cd extractors/csharp && dotnet restore"
+            test: "cd extractors/csharp && dotnet test"
+          - name: cpp
+            setup: "cd extractors/cpp && cmake -B build && cmake --build build"
+            test: "cd extractors/cpp && ctest --test-dir build"
+          - name: php
+            setup: "cd extractors/php && composer install --no-interaction"
+            test: "cd extractors/php && vendor/bin/phpunit"
+          - name: swift
+            setup: "cd extractors/swift && swift build"
+            test: "cd extractors/swift && swift test"
+          - name: lua
+            setup: "luarocks install busted"
+            test: "cd extractors/lua && busted spec/"
+
+    name: Test ${{ matrix.language.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Go
+        if: matrix.language.name == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Set up Node
+        if: matrix.language.name == 'typescript'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Rust
+        if: matrix.language.name == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Java
+        if: matrix.language.name == 'java' || matrix.language.name == 'kotlin'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up .NET
+        if: matrix.language.name == 'csharp'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0"
+
+      - name: Set up PHP
+        if: matrix.language.name == 'php'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          tools: composer
+
+      - name: Set up Swift
+        if: matrix.language.name == 'swift'
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "5.9"
+
+      - name: Set up Lua
+        if: matrix.language.name == 'lua'
+        uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: "5.4"
+
+      - name: Install extractor dependencies
+        run: ${{ matrix.language.setup }}
+
+      - name: Run extractor tests
+        run: ${{ matrix.language.test }}
+
+      - name: Verify LSP config exists
+        run: |
+          LSP_MAP='{"python":"pyright","typescript":"typescript","go":"gopls","rust":"rust-analyzer","java":"jdtls","kotlin":"kotlin-ls","csharp":"csharp-ls","cpp":"clangd","php":"intelephense","swift":"sourcekit-lsp","lua":"lua-ls"}'
+          LSP_NAME=$(echo "${LSP_MAP}" | python -c "import json,sys; print(json.load(sys.stdin).get('${{ matrix.language.name }}',''))")
+          if [ -n "${LSP_NAME}" ]; then
+            test -f "lsp_setup/lsp_configs/${LSP_NAME}.json" || { echo "::error::Missing LSP config for ${LSP_NAME}"; exit 1; }
+          fi

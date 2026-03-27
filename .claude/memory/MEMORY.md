@@ -1,0 +1,4 @@
+- [MCP v2 + Neon PG18](reference_mcp_v2_neon_pg18.md) — SDK v2 registerTool, Neon branching, plugin architecture
+- [v2.1.85 optimizations](feedback_v2185_optimizations.md) — Top 5 ROI actions for latency and codegen
+- [Latency + codegen practices](feedback_latency_codegen.md) — Ranked levers from awesome-claude-code research
+- [Channel dispatch plan](project_channel_dispatch.md) — Plan for channel-dispatch-routing repo

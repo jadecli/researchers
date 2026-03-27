@@ -1,0 +1,25 @@
+{
+  "name": "claude-dspy-crawl-planning",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Shannon-thinking crawl planner using Claude Agent SDK v2 canonical objects",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "crawl": "npx tsx src/crawl/runner.ts",
+    "plan": "npx tsx src/thinking/planner.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.33",
+    "@anthropic-ai/sdk": "^0.52.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0"
+  }
+}

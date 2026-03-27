@@ -1,0 +1,30 @@
+{
+  "name": "gopls",
+  "command": "gopls serve",
+  "filetypes": ["go", "gomod", "gowork", "gotmpl"],
+  "root_markers": ["go.mod", "go.work"],
+  "initialization_options": {},
+  "settings": {
+    "gopls": {
+      "analyses": {
+        "unusedparams": true,
+        "shadow": true,
+        "fieldalignment": true,
+        "nilness": true,
+        "unusedwrite": true
+      },
+      "staticcheck": true,
+      "gofumpt": true,
+      "usePlaceholders": true,
+      "completeUnimported": true,
+      "hints": {
+        "assignVariableTypes": true,
+        "compositeLiteralFields": true,
+        "constantValues": true,
+        "functionTypeParameters": true,
+        "parameterNames": true,
+        "rangeVariableTypes": true
+      }
+    }
+  }
+}

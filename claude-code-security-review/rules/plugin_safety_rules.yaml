@@ -1,0 +1,64 @@
+# Safety rules for generated knowledge-work plugins
+rules:
+  scripts:
+    disallowed_functions:
+      - eval
+      - exec
+      - compile
+      - __import__
+      - importlib.import_module
+      - os.system
+      - subprocess.call
+      - subprocess.Popen
+    disallowed_patterns:
+      - 'shell\s*=\s*True'
+      - 'os\.system\s*\('
+      - 'exec\s*\('
+      - 'eval\s*\('
+      - '__import__\s*\('
+    max_script_size: 102400  # 100KB
+
+  hooks:
+    disallowed_in_commands:
+      - 'shell=True'
+      - 'rm -rf'
+      - 'sudo'
+      - 'chmod 777'
+      - '> /dev/'
+      - 'mkfifo'
+      - 'nc -l'
+      - 'ncat'
+    allowed_hook_types:
+      - command
+      - script
+
+  credentials:
+    disallowed_patterns:
+      - "password\\s*=\\s*[\"'][^\\s]+"
+      - "secret\\s*=\\s*[\"'][^\\s]+"
+      - "token\\s*=\\s*[\"'][^\\s]+"
+      - "api_key\\s*=\\s*[\"'][^\\s]+"
+      - "AKIA[0-9A-Z]{16}"
+      - "eyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\."
+
+  skills:
+    require_user_consent_for_urls: true
+    disallowed_content_patterns:
+      - 'ignore previous instructions'
+      - 'ignore all previous'
+      - 'disregard the above'
+      - 'system prompt'
+      - 'you are now'
+      - 'new persona'
+      - 'jailbreak'
+    max_skill_description_length: 2000
+
+  mcp_servers:
+    allowed_types:
+      - stdio
+      - sse
+    require_explicit_permissions: true
+    disallowed_server_patterns:
+      - '.*\.onion'
+      - '.*\.i2p'
+      - 'localhost:[0-9]+'

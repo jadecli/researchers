@@ -1,0 +1,17 @@
+{
+  "name": "security-scanners-ts",
+  "version": "0.1.0",
+  "description": "TypeScript security scanners for dependency checking and XSS detection",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.11.0",
+    "vitest": "^1.3.0"
+  }
+}

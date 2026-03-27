@@ -1,0 +1,166 @@
+name: Plugin Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin_name:
+        description: "Plugin directory name"
+        required: true
+        type: string
+      version:
+        description: "Semantic version to publish"
+        required: true
+        type: string
+      marketplace:
+        description: "Target marketplace"
+        required: false
+        default: "github"
+        type: choice
+        options:
+          - github
+          - internal
+          - both
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      valid: ${{ steps.check.outputs.valid }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Validate plugin structure
+        id: check
+        run: |
+          PLUGIN_DIR="plugins/${{ inputs.plugin_name }}"
+          VALID=true
+
+          if [ ! -d "${PLUGIN_DIR}" ]; then
+            echo "::error::Plugin directory ${PLUGIN_DIR} does not exist"
+            VALID=false
+          fi
+
+          if [ ! -f "${PLUGIN_DIR}/manifest.json" ]; then
+            echo "::error::Missing manifest.json"
+            VALID=false
+          fi
+
+          if [ ! -f "${PLUGIN_DIR}/README.md" ]; then
+            echo "::warning::Missing README.md"
+          fi
+
+          if ls "${PLUGIN_DIR}"/*.py 1>/dev/null 2>&1; then
+            ruff check "${PLUGIN_DIR}" || VALID=false
+            mypy "${PLUGIN_DIR}" --ignore-missing-imports || VALID=false
+          fi
+
+          python -c "
+          import json, sys
+          with open('${PLUGIN_DIR}/manifest.json') as f:
+              m = json.load(f)
+          required = ['name', 'version', 'description', 'entry_point']
+          missing = [k for k in required if k not in m]
+          if missing:
+              print(f'::error::manifest.json missing fields: {missing}')
+              sys.exit(1)
+          if m['version'] != '${{ inputs.version }}':
+              print(f'::warning::manifest version {m[\"version\"]} != requested ${{ inputs.version }}')
+          " || VALID=false
+
+          echo "valid=${VALID}" >> "$GITHUB_OUTPUT"
+
+      - name: Run plugin tests
+        if: steps.check.outputs.valid == 'true'
+        run: |
+          PLUGIN_DIR="plugins/${{ inputs.plugin_name }}"
+          if [ -f "${PLUGIN_DIR}/test_plugin.py" ]; then
+            pytest "${PLUGIN_DIR}/test_plugin.py" -v
+          else
+            echo "No tests found, skipping"
+          fi
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: validate
+    if: needs.validate.outputs.valid == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Tag release
+        run: |
+          git tag "plugin/${{ inputs.plugin_name }}/v${{ inputs.version }}"
+          git push origin "plugin/${{ inputs.plugin_name }}/v${{ inputs.version }}"
+
+      - name: Create marketplace PR
+        if: inputs.marketplace == 'github' || inputs.marketplace == 'both'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="publish/${{ inputs.plugin_name }}-v${{ inputs.version }}"
+          git checkout -b "${BRANCH}"
+
+          python -c "
+          import json
+          path = 'plugins/${{ inputs.plugin_name }}/manifest.json'
+          with open(path) as f:
+              m = json.load(f)
+          m['version'] = '${{ inputs.version }}'
+          m['published'] = True
+          with open(path, 'w') as f:
+              json.dump(m, f, indent=2)
+          "
+
+          git add -A
+          git commit -m "Publish ${{ inputs.plugin_name }} v${{ inputs.version }}"
+          git push origin "${BRANCH}"
+
+          gh pr create \
+            --title "Publish plugin: ${{ inputs.plugin_name }} v${{ inputs.version }}" \
+            --body "Automated marketplace publish for **${{ inputs.plugin_name }}** version ${{ inputs.version }}.
+
+          Validation passed. Tagged as \`plugin/${{ inputs.plugin_name }}/v${{ inputs.version }}\`." \
+            --base main \
+            --head "${BRANCH}"
+
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: |
+          python -c "
+          from integrations.slack_reporter import SlackReporter
+          r = SlackReporter()
+          r.post_crawl_summary(
+              target='plugin/${{ inputs.plugin_name }}',
+              spider='publish',
+              iterations=1,
+              run_url='${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+          )
+          "

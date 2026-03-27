@@ -1,0 +1,44 @@
+{
+  "name": "intelephense",
+  "command": "intelephense --stdio",
+  "filetypes": ["php"],
+  "root_markers": ["composer.json", ".php-cs-fixer.php", "phpunit.xml", "phpstan.neon"],
+  "initialization_options": {
+    "clearCache": false,
+    "globalStoragePath": "",
+    "licenceKey": ""
+  },
+  "settings": {
+    "intelephense": {
+      "files": {
+        "maxSize": 5000000,
+        "associations": ["*.php", "*.phtml"],
+        "exclude": [
+          "**/vendor/**/{Tests,tests}/**",
+          "**/.git/**",
+          "**/node_modules/**"
+        ]
+      },
+      "environment": {
+        "phpVersion": "8.3.0"
+      },
+      "format": {
+        "enable": true
+      },
+      "completion": {
+        "insertUseDeclaration": true,
+        "fullyQualifyGlobalConstantsAndFunctions": false,
+        "triggerParameterHints": true,
+        "maxItems": 100
+      },
+      "diagnostics": {
+        "enable": true,
+        "run": "onType"
+      },
+      "phpdoc": {
+        "returnVoid": false,
+        "textFormat": "snippet"
+      }
+    }
+  }
+}

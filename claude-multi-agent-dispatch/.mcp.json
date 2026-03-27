@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "shannon-thinking": {
+      "command": "npx",
+      "args": ["tsx", "src/thinking/server.ts"],
+      "transport": "stdio"
+    },
+    "dispatch-tools": {
+      "command": "npx",
+      "args": ["tsx", "src/dispatch/mcp-server.ts"],
+      "transport": "stdio"
+    }
+  }
+}

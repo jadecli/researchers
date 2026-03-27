@@ -1,0 +1,28 @@
+{
+  "name": "sourcekit-lsp",
+  "command": "sourcekit-lsp",
+  "filetypes": ["swift", "objective-c", "objective-cpp"],
+  "root_markers": ["Package.swift", "*.xcodeproj", "*.xcworkspace", "compile_commands.json"],
+  "initialization_options": {},
+  "settings": {
+    "sourcekit-lsp": {
+      "serverPath": "",
+      "toolchainPath": "",
+      "trace": {
+        "server": "off"
+      },
+      "inlayHints": {
+        "enabled": true
+      },
+      "backgroundIndexing": true,
+      "swiftPM": {
+        "configuration": "debug"
+      },
+      "fallbackBuildSystem": {
+        "cFlags": [],
+        "cxxFlags": [],
+        "swiftFlags": []
+      }
+    }
+  }
+}

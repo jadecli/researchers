@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "dispatch-channel": {
+      "command": "npx",
+      "args": ["tsx", "src/channel/server.ts"]
+    }
+  }
+}

@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "claude-code-actions"
+version = "0.1.0"
+description = "Cross-platform CI/CD integration for Claude Code: GitHub Actions, GitLab CI, Chrome extraction, Slack reporting, and LSP setup"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "pyyaml>=6.0",
+    "click>=8.1",
+    "requests>=2.31",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+chrome = ["selenium>=4.15", "playwright>=1.40"]
+slack = ["slack-sdk>=3.23"]
+linear = ["gql>=3.5", "aiohttp>=3.9"]
+notion = ["notion-client>=2.2"]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.1",
+    "mypy>=1.7",
+]
+all = [
+    "claude-code-actions[chrome,slack,linear,notion,dev]",
+]
+
+[project.scripts]
+cca = "claude_code_actions.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

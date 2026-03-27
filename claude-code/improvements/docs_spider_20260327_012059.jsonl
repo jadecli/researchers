@@ -1,0 +1,4 @@
+{"timestamp": "2026-03-27T01:20:54.096545", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/zero-data-retention.md", "quality_score": 0.7419, "status": 200, "content_length": 5070}
+{"timestamp": "2026-03-27T01:20:56.156727", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/web-scheduled-tasks.md", "quality_score": 0.7767, "status": 200, "content_length": 9202}
+{"timestamp": "2026-03-27T01:20:56.449772", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/vs-code.md", "quality_score": 0.9274, "status": 200, "content_length": 30407}
+{"timestamp": "2026-03-27T01:20:59.155351", "spider": "docs_spider", "url": "https://code.claude.com/docs/en/voice-dictation.md", "quality_score": 0.8967, "status": 200, "content_length": 7481}

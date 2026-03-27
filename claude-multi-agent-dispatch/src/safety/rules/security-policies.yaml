@@ -1,0 +1,21 @@
+network:
+  max_redirects: 5
+  allowed_schemes:
+    - http
+    - https
+  timeout_seconds: 30
+
+headers:
+  required:
+    - User-Agent
+  disallowed:
+    - Authorization
+
+rate_limiting:
+  max_requests_per_minute: 30
+
+data:
+  max_response_size_bytes: 10485760
+  allowed_output_dirs:
+    - rounds/
+    - data/

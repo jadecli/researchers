@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "claude-code-security-review"
+version = "0.1.0"
+description = "Multi-language security scanners for Scrapy spiders, crawled data, and generated plugins"
+requires-python = ">=3.11"
+dependencies = [
+    "pyyaml",
+    "pydantic>=2.0",
+    "click",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

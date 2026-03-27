@@ -1,0 +1,39 @@
+{
+  "name": "kotlin-language-server",
+  "command": "kotlin-language-server",
+  "filetypes": ["kotlin"],
+  "root_markers": ["build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "pom.xml"],
+  "initialization_options": {
+    "storagePath": "",
+    "compiler": {
+      "jvm": {
+        "target": "17"
+      }
+    }
+  },
+  "settings": {
+    "kotlin": {
+      "compiler": {
+        "jvm": {
+          "target": "17"
+        }
+      },
+      "linting": {
+        "debounceTime": 250
+      },
+      "completion": {
+        "snippets": {
+          "enabled": true
+        }
+      },
+      "debugAdapter": {
+        "enabled": false
+      },
+      "inlayHints": {
+        "typeHints": true,
+        "parameterHints": true,
+        "chainedHints": true
+      }
+    }
+  }
+}

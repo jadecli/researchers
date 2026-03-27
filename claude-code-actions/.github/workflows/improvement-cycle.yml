@@ -1,0 +1,122 @@
+name: Improvement Cycle
+
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: "Number of iterations per spider"
+        required: false
+        default: "5"
+        type: string
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+jobs:
+  improve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        spider: [default, deep, breadth, api]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[all]"
+
+      - name: Determine iteration count
+        id: params
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "iterations=${{ inputs.iterations }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "iterations=5" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create improvement branch
+        run: |
+          git checkout -b improve/${{ matrix.spider }}-$(date +%Y%m%d-%H%M%S)
+
+      - name: Run improvement cycle with Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            You are improving the "${{ matrix.spider }}" spider through ${{ steps.params.outputs.iterations }} iterations.
+
+            For each iteration:
+            1. Run the spider against the test targets:
+               bash scripts/run-crawl.sh "$(cat crawl-targets.txt | head -1)" "${{ matrix.spider }}"
+            2. Evaluate quality:
+               python scripts/check-quality.py --spider "${{ matrix.spider }}" --threshold 0.85
+            3. Read the quality report in output/${{ matrix.spider }}/quality.json
+            4. Identify the lowest-scoring dimensions (completeness, accuracy, freshness)
+            5. Modify the spider source code to address weaknesses
+            6. Commit the improvement with a message describing what changed
+
+            After all iterations, create a summary comparing iteration 1 vs final scores.
+          max_turns: 30
+
+      - name: Push improvement branch
+        run: |
+          git push origin HEAD
+
+      - name: Create PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --title "Improve ${{ matrix.spider }} spider - $(date +%Y-%m-%d)" \
+            --body "Automated improvement cycle for the **${{ matrix.spider }}** spider.
+
+          Ran ${{ steps.params.outputs.iterations }} iterations of crawl-evaluate-improve.
+
+          See workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --base main \
+            --head "$(git branch --show-current)"
+
+  aggregate:
+    runs-on: ubuntu-latest
+    needs: improve
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e "."
+
+      - name: Generate aggregate report
+        run: |
+          python scripts/generate-report.py \
+            --title "Improvement Cycle $(date +%Y-%m-%d)" \
+            --output reports/improvement-cycle.html
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: improvement-cycle-report
+          path: reports/improvement-cycle.html
+          retention-days: 90

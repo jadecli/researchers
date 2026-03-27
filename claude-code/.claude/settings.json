@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scrapy_researchers/feedback/context_delta.py --check-last"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scrapy_researchers/feedback/improvement_log.py --summarize"
+          }
+        ]
+      }
+    ]
+  }
+}

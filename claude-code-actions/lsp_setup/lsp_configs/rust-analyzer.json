@@ -1,0 +1,37 @@
+{
+  "name": "rust-analyzer",
+  "command": "rust-analyzer",
+  "filetypes": ["rust"],
+  "root_markers": ["Cargo.toml", "rust-project.json"],
+  "initialization_options": {
+    "cargo": {
+      "allFeatures": true,
+      "loadOutDirsFromCheck": true
+    },
+    "checkOnSave": {
+      "command": "clippy"
+    },
+    "procMacro": {
+      "enable": true
+    }
+  },
+  "settings": {
+    "rust-analyzer": {
+      "inlayHints": {
+        "bindingModeHints.enable": true,
+        "closureReturnTypeHints.enable": "always",
+        "lifetimeElisionHints.enable": "always",
+        "parameterHints.enable": true,
+        "typeHints.enable": true
+      },
+      "completion": {
+        "autoimport.enable": true,
+        "postfix.enable": true
+      },
+      "diagnostics": {
+        "enable": true,
+        "experimental.enable": true
+      }
+    }
+  }
+}

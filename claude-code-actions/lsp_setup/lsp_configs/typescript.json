@@ -1,0 +1,18 @@
+{
+  "name": "typescript-language-server",
+  "command": "typescript-language-server --stdio",
+  "filetypes": ["typescript", "typescriptreact", "javascript", "javascriptreact"],
+  "root_markers": ["tsconfig.json", "jsconfig.json", "package.json"],
+  "initialization_options": {
+    "preferences": {
+      "includeInlayParameterNameHints": "all",
+      "includeInlayPropertyDeclarationTypeHints": true,
+      "includeInlayFunctionLikeReturnTypeHints": true
+    }
+  },
+  "settings": {
+    "typescript.format.insertSpaceAfterOpeningAndBeforeClosingNonemptyBraces": true,
+    "typescript.suggest.completeFunctionCalls": true,
+    "javascript.suggest.completeFunctionCalls": true
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "csharp-ls",
+  "command": "csharp-ls",
+  "filetypes": ["csharp"],
+  "root_markers": ["*.sln", "*.csproj", "global.json"],
+  "initialization_options": {},
+  "settings": {
+    "csharp": {
+      "format": {
+        "enable": true
+      },
+      "completion": {
+        "triggerCharacters": [".", " "]
+      },
+      "inlayHints": {
+        "enableInlayHintsForParameters": true,
+        "enableInlayHintsForLiteralParameters": true,
+        "enableInlayHintsForObjectCreationParameters": true,
+        "enableInlayHintsForIndexerParameters": true,
+        "enableInlayHintsForImplicitVariableTypes": true,
+        "enableInlayHintsForLambdaParameterTypes": true,
+        "enableInlayHintsForImplicitObjectCreation": true
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "jdtls",
+  "command": "jdtls",
+  "filetypes": ["java"],
+  "root_markers": ["pom.xml", "build.gradle", "build.gradle.kts", ".project", "settings.gradle"],
+  "initialization_options": {
+    "bundles": [],
+    "workspaceFolders": []
+  },
+  "settings": {
+    "java": {
+      "format": {
+        "enabled": true,
+        "settings": {
+          "profile": "GoogleStyle"
+        }
+      },
+      "completion": {
+        "favoriteStaticMembers": [
+          "org.junit.Assert.*",
+          "org.junit.jupiter.api.Assertions.*",
+          "org.mockito.Mockito.*"
+        ],
+        "importOrder": ["java", "javax", "org", "com"]
+      },
+      "sources": {
+        "organizeImports": {
+          "starThreshold": 5,
+          "staticStarThreshold": 3
+        }
+      },
+      "codeGeneration": {
+        "toString": {
+          "template": "${object.className}{${member.name()}=${member.value}, ${otherMembers}}"
+        },
+        "hashCodeEquals": {
+          "useInstanceof": true
+        }
+      },
+      "configuration": {
+        "updateBuildConfiguration": "automatic"
+      }
+    }
+  }
+}

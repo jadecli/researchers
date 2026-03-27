@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "multi-agent-research": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["tsx", "src/mcp/server.ts"],
+      "env": {}
+    }
+  }
+}

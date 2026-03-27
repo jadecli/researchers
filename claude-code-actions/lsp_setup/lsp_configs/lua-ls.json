@@ -1,0 +1,51 @@
+{
+  "name": "lua-language-server",
+  "command": "lua-language-server --stdio",
+  "filetypes": ["lua"],
+  "root_markers": [".luarc.json", ".luarc.jsonc", ".luacheckrc", ".stylua.toml", "selene.toml"],
+  "initialization_options": {},
+  "settings": {
+    "Lua": {
+      "runtime": {
+        "version": "Lua 5.4",
+        "pathStrict": true
+      },
+      "workspace": {
+        "checkThirdParty": "Disable",
+        "library": [],
+        "maxPreload": 10000,
+        "preloadFileSize": 1000
+      },
+      "completion": {
+        "callSnippet": "Replace",
+        "keywordSnippet": "Replace",
+        "showWord": "Fallback",
+        "workspaceWord": true
+      },
+      "diagnostics": {
+        "enable": true,
+        "globals": ["vim"],
+        "neededFileStatus": {
+          "codestyle-check": "Any"
+        }
+      },
+      "format": {
+        "enable": true,
+        "defaultConfig": {
+          "indent_style": "space",
+          "indent_size": "2"
+        }
+      },
+      "hint": {
+        "enable": true,
+        "arrayIndex": "Enable",
+        "paramName": "All",
+        "paramType": true,
+        "setType": true
+      },
+      "telemetry": {
+        "enable": false
+      }
+    }
+  }
+}

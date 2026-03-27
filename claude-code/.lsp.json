@@ -1,0 +1,66 @@
+{
+  "python": {
+    "command": "pyright-langserver",
+    "args": ["--stdio"],
+    "languages": ["python"],
+    "initializationOptions": {
+      "python.analysis.typeCheckingMode": "basic",
+      "python.analysis.autoSearchPaths": true
+    }
+  },
+  "typescript": {
+    "command": "typescript-language-server",
+    "args": ["--stdio"],
+    "languages": ["typescript", "typescriptreact", "javascript", "javascriptreact"]
+  },
+  "go": {
+    "command": "gopls",
+    "args": ["serve"],
+    "languages": ["go"]
+  },
+  "rust": {
+    "command": "rust-analyzer",
+    "args": [],
+    "languages": ["rust"]
+  },
+  "java": {
+    "command": "jdtls",
+    "args": [],
+    "languages": ["java"]
+  },
+  "kotlin": {
+    "command": "kotlin-language-server",
+    "args": [],
+    "languages": ["kotlin"]
+  },
+  "csharp": {
+    "command": "OmniSharp",
+    "args": ["--languageserver"],
+    "languages": ["csharp"]
+  },
+  "cpp": {
+    "command": "clangd",
+    "args": ["--background-index"],
+    "languages": ["c", "cpp"]
+  },
+  "php": {
+    "command": "intelephense",
+    "args": ["--stdio"],
+    "languages": ["php"]
+  },
+  "swift": {
+    "command": "sourcekit-lsp",
+    "args": [],
+    "languages": ["swift"]
+  },
+  "lua": {
+    "command": "lua-language-server",
+    "args": [],
+    "languages": ["lua"]
+  },
+  "ruby": {
+    "command": "solargraph",
+    "args": ["stdio"],
+    "languages": ["ruby"]
+  }
+}
