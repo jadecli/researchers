@@ -6,6 +6,23 @@
 >
 > Last updated: 2026-03-27 (session: typescript-data-warehouse-artifacts)
 
+## Claude Code Version Pin
+
+**Last reviewed:** `2.1.80`
+**Current latest:** `2.1.85`
+**Changelog:** https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
+
+At session start, diff the changelog from the pinned version to current.
+Incorporate relevant improvements into this repo's structure, hooks, and workflows.
+After reviewing, bump the pin to the latest version in this file.
+
+### Notable changes since 2.1.80 to evaluate for adoption:
+- **2.1.81**: `--bare` flag for scripted API calls; `--channels` permission relay for mobile approval
+- **2.1.82**: Worktree session initialization fixes
+- **2.1.83**: Drop-in directory support for modular policy; `CwdChanged`/`FileChanged` reactive hooks; `initialPrompt` frontmatter for agents
+- **2.1.84**: `TaskCreated` hook for task lifecycle; `PreToolUse` hooks can provide headless answers; model capability detection env vars
+- **2.1.85**: Conditional hook execution via permission rule syntax; MCP OAuth RFC 9728; org-managed plugin blocking
+
 ## Out of Scope (do NOT add to current PR)
 
 ### ci: add Claude Code CI/CD checks to GitHub Actions
