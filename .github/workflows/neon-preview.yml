@@ -33,7 +33,7 @@ jobs:
       db_url: ${{ steps.create-branch.outputs.db_url }}
       branch_id: ${{ steps.create-branch.outputs.branch_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create Neon preview branch
         id: create-branch
