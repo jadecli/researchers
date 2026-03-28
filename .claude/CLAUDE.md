@@ -50,6 +50,9 @@ The `UserPromptSubmit` hook in `.claude/settings.json` will remind you automatic
 - Run `nvm use` or ensure Node 20+ is available before starting work
 
 ## Hooks (root .claude/settings.json)
-- `SessionStart` — Validates Node version, checks agenttasks deps, runs quick tsc check
+- `SessionStart` — Validates environment, auto-installs deps, injects agentcommits context
+- `PreToolUse(Bash)` — context-pre-commit.sh (commit format, return types, arch, secrets), context-pre-pr.sh (build, push, conflicts, security)
+- `PreToolUse(mcp__github__create_pull_request)` — context-pre-pr.sh (same gate for MCP PR creation)
 - `UserPromptSubmit` — Detects PR creation intent, warns if build not validated
+- Escalation chain: fix at source → Slack alert → Linear ticket → TODO in todos.jsonl (never silent)
 - Sub-repo hooks (PreToolUse, PostToolUse, Stop) are defined in each sub-repo's own settings.json

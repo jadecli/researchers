@@ -74,3 +74,25 @@ class SkillSpec(BaseModel):
     )
     content: str = Field(default="", description="Skill body content in markdown")
     source_url: str = Field(default="", description="URL where this skill was found")
+
+
+class OfficialSkill(DocPage):
+    """An official vendor skill from skills.sh/official registry.
+
+    Only official (creator-owned) skills are crawled to avoid security risk
+    from community/non-official skills.
+    """
+
+    skill_name: str = Field(description="Skill name from SKILL.md frontmatter")
+    skill_description: str = Field(default="", description="Skill description from frontmatter")
+    creator_org: str = Field(description="GitHub org that owns the skill")
+    repo: str = Field(default="", description="GitHub repo containing the skill")
+    skill_dir: str = Field(default="", description="Directory path within repo")
+    license: str = Field(default="unknown", description="SPDX license identifier")
+    frontmatter: dict[str, Any] = Field(
+        default_factory=dict, description="Full YAML frontmatter from SKILL.md"
+    )
+    body: str = Field(default="", description="Skill body content (below frontmatter)")
+    has_examples: bool = Field(default=False, description="Whether skill includes examples")
+    has_scripts: bool = Field(default=False, description="Whether skill bundles scripts")
+    stars: int = Field(default=0, description="GitHub repo star count")

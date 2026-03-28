@@ -6,7 +6,34 @@
           {
             "type": "command",
             "command": ".claude/hooks/session-setup.sh",
-            "timeout": 30000
+            "timeout": 60000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/context-pre-commit.sh",
+            "timeout": 15000
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/context-pre-pr.sh",
+            "timeout": 60000
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__github__create_pull_request",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/context-pre-pr.sh",
+            "timeout": 60000
           }
         ]
       },

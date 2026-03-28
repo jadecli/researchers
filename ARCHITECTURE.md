@@ -103,6 +103,8 @@ Phase 5: Full Crawl Campaigns
 │  │   │   ├─ platform_spider.py    (platform.claude.com)                    │
 │  │   │   ├─ anthropic_spider.py   (anthropic.com sitemap)                  │
 │  │   │   ├─ claude_com_spider.py  (claude.com/docs)                        │
+│  │   │   ├─ github_spider.py     (GitHub org repos via REST API)           │
+│  │   │   ├─ spotify_spider.py    (Spotify org stat packages)               │
 │  │   │   └─ llms_full_spider.py   (25MB+ full-text parser)                 │
 │  │   ├─ extractors/    (markdown, metadata, skill, link graph)             │
 │  │   ├─ feedback/      (quality scorer, context delta, improvement log)    │
@@ -122,11 +124,18 @@ Phase 5: Full Crawl Campaigns
 │                           SUPPORT LAYER                                     │
 │                                                                             │
 │  claude-code-agents-python           claude-code-actions                    │
-│  ├─ DSPy pipeline (5 signatures)     ├─ 7 GitHub Actions workflows         │
+│  ├─ DSPy pipeline (5+4 signatures)   ├─ 7 GitHub Actions workflows         │
 │  ├─ Crawl adapter (structured I/O)   ├─ GitLab CI/CD equivalent            │
-│  ├─ Plugin generator (scaffold)      ├─ Chrome MCP extraction              │
-│  ├─ Codegen (12 language templates)  ├─ Slack/Linear/Notion integration    │
-│  └─ Cowork task router               └─ LSP setup (11 language configs)    │
+│  ├─ Agentcommits pipeline            ├─ Chrome MCP extraction              │
+│  │   ├─ CommitClassifier             ├─ Slack/Linear/Notion integration    │
+│  │   ├─ TrailerExtractor             └─ LSP setup (11 language configs)    │
+│  │   ├─ ConventionChecker                                                   │
+│  │   └─ AgentCommitBloomFilter       claude-dspy-crawl-planning             │
+│  ├─ Campaigns (MCP v2, agentcommits) ├─ Shannon 5-step planner             │
+│  ├─ Plugin generator (scaffold)      ├─ Agentcommits TS modules            │
+│  ├─ Codegen (12 language templates)  │   ├─ bloom-filter.ts (branded)      │
+│  └─ Cowork task router               │   ├─ trailer-parser.ts              │
+│                                       │   └─ agents.yaml (6 agents)        │
 │                                                                             │
 │  claude-code-agents-typescript       claude-code-security-review            │
 │  ├─ Boris Cherny strict types        ├─ Python: SSRF, PII, injection       │
@@ -194,7 +203,51 @@ Phase 5: Full Crawl Campaigns
                              ▼
                     Next round uses delta
                     to steer improvements
+
+### Agentcommits Pipeline (added 2026-03-28)
+
 ```
+  Git Commit Message
+        │
+        ▼
+  ┌─────────────────────────┐
+  │  Bloom Filter           │
+  │  O(1) Agent-Id check    │
+  │  (Python + TypeScript)  │
+  └────────────┬────────────┘
+               │ might_contain?
+        ┌──────┴──────┐
+        │ Yes         │ No
+        ▼             ▼
+  ┌──────────┐  Standard pipeline
+  │ Trailer  │  (conventional commits only)
+  │ Extractor│
+  │ (regex)  │
+  └────┬─────┘
+       │
+       ▼
+  ┌──────────────────────────┐
+  │  Convention Checker      │
+  │  + Commit Classifier     │
+  │  (DSPy ChainOfThought)  │
+  └────────────┬─────────────┘
+               │
+               ▼
+  ┌──────────────────────────┐
+  │  Agent Dispatch Router   │
+  │  (by commit type)        │
+  │  feat → [classifier,     │
+  │          validator, eval] │
+  │  fix  → [classifier,     │
+  │          validator]       │
+  └────────────┬─────────────┘
+               │
+               ▼
+  Neon PG18: runtime.crawl_events
+  → reporting.fact_eval_finding
+  → semantic.trailer_adoption_rate
+```
+
 
 ### Kimball Data Architecture (claude-channel-dispatch-routing)
 
