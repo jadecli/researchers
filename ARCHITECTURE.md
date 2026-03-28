@@ -128,13 +128,17 @@ Phase 5: Full Crawl Campaigns
 │  ├─ Codegen (12 language templates)  ├─ Slack/Linear/Notion integration    │
 │  └─ Cowork task router               └─ LSP setup (11 language configs)    │
 │                                                                             │
-│  claude-code-security-review                                                │
-│  ├─ Python: SSRF, PII, injection, exfiltration scanners                    │
-│  ├─ TypeScript: dependency checker, XSS scanner                            │
-│  ├─ Go: vulnerability auditor CLI                                          │
-│  ├─ Rust: URL validator                                                     │
-│  ├─ YAML rules: allowlists, PII patterns, security policies               │
-│  └─ PreToolUse hook: validate-url.sh (blocks internal IPs)                 │
+│  claude-code-agents-typescript       claude-code-security-review            │
+│  ├─ Boris Cherny strict types        ├─ Python: SSRF, PII, injection       │
+│  │   (branded, Result<T,E>,          ├─ TypeScript: dep checker, XSS       │
+│  │    discriminated unions,           ├─ Go: vulnerability auditor CLI      │
+│  │    assertNever exhaustive)         ├─ Rust: URL validator                │
+│  ├─ Zod schemas (= Pydantic v2)      ├─ YAML rules, security policies     │
+│  ├─ Pipeline modules (5 signatures)  └─ PreToolUse hook: validate-url.sh   │
+│  ├─ Plugin generator (8 writers)                                            │
+│  ├─ Codegen (12 language templates)                                         │
+│  ├─ Cowork router (10 domains)                                              │
+│  └─ 139 vitest tests                                                        │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -229,6 +233,95 @@ Phase 5: Full Crawl Campaigns
 └───────────────────────────────────────────────────────────────┘
 ```
 
+### Phase 6: Video AI Crawl Campaign + TypeScript Port
+
+```
+Phase 6A: Video AI Crawl Campaign (4 targets, 10% below throttle)
+├─ Researched llms.txt URLs for 4 video AI platforms
+│   ├─ Kling 3.0    → https://app.klingai.com/llms.txt (confirmed)
+│   ├─ Google Veo    → https://ai.google.dev/api/llms.txt (Gemini API, closest)
+│   ├─ Seedance 2.0  → seed.bytedance.com/en/seedance2_0 (no llms.txt exists)
+│   └─ Higgsfield    → https://docs.higgsfield.ai/llms.txt (confirmed)
+├─ Created throttle_conservative.py (Scrapy settings override)
+│   ├─ DOWNLOAD_DELAY: 2.0 → 2.2  (+10%)
+│   ├─ CONCURRENT_REQUESTS: 2 → 1  (floor(2 * 0.9))
+│   ├─ AUTOTHROTTLE_TARGET_CONCURRENCY: 1.0 → 0.9  (-10%)
+│   └─ AUTOTHROTTLE_MAX_DELAY: 60 → 66  (+10%)
+├─ Created run_video_ai_crawl.py (campaign runner)
+│   ├─ DSPy convert_prompt_to_campaign + direct CrawlPlan
+│   ├─ 200 total max pages across 4 targets
+│   └─ HeadlessRunner timed out (expected — no claude CLI)
+└─ Results: data/video_ai_crawl_results.json
+
+Phase 6B: TypeScript Port (Boris Cherny strict typing)
+├─ Mapped all Python modules → TypeScript equivalents
+│   ├─ models/ (5 files): Pydantic v2 → Zod schemas
+│   ├─ pipeline/ (4 files): DSPy signatures → Zod + createModule()
+│   ├─ orchestrator/ (4 files): CrawlCampaign, HeadlessRunner, ImprovementChain
+│   ├─ codegen/ (3 files): 12 language templates with assertNever
+│   ├─ cowork/ (3 files): 10-domain router + 14-plugin catalog
+│   ├─ plugin_gen/ (8 files): manifest, skills, agents, connectors, hooks, LSP, MCP
+│   ├─ cli.ts: Commander (campaign, generate-plugin, codegen, cowork-task)
+│   └─ index.ts: barrel exports
+├─ Strict TypeScript configuration
+│   ├─ strict: true, noUncheckedIndexedAccess: true
+│   ├─ noUnusedLocals: true, noUnusedParameters: true
+│   └─ ES2022 target, NodeNext module resolution
+├─ Boris Cherny patterns enforced
+│   ├─ 10 branded types (CampaignId, SpiderName, Url, QualityValue, etc.)
+│   ├─ Result<T,E> with Ok/Err/map/flatMap/unwrap/unwrapOr
+│   ├─ Discriminated unions (CampaignState, SpiderType, CrawlPriority)
+│   └─ assertNever exhaustive matching (PageType, TemplateEngine, MCP config)
+├─ Fixed 41 TypeScript compilation errors (unused imports/variables)
+├─ Fixed 2 test failures (default route expectation, substring match order)
+├─ 7 test files, 139/139 tests passing
+└─ 0 TypeScript errors with strict compilation
+```
+
+### claude-code-agents-typescript Module Map
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  types.ts                                                       │
+│  ├─ Brand<K,T>          — nominal typing via intersection       │
+│  ├─ Result<T,E>         — Ok | Err with map/flatMap/unwrap     │
+│  └─ assertNever(x)      — exhaustive switch guard              │
+├─────────────────────────────────────────────────────────────────┤
+│  models/                          pipeline/                     │
+│  ├─ crawl-target.ts               ├─ signatures.ts (5 Zod)     │
+│  │   PageType (7 variants)        ├─ modules.ts (CoT wrappers) │
+│  │   CrawlTarget, CrawlPlan      ├─ pipeline.ts (facade)       │
+│  ├─ extraction-result.ts          └─ crawl-adapter.ts           │
+│  │   QualityScore (40/35/25)          SpiderType union          │
+│  │   ExtractionResult                 CrawlPriority union       │
+│  ├─ improvement.ts                    VIDEO_AI_CRAWL_CAMPAIGN   │
+│  │   SelectorPatch                                              │
+│  ├─ language.ts                   orchestrator/                 │
+│  │   12 languages + LSP map       ├─ campaign.ts                │
+│  └─ plugin-spec.ts                │   CampaignState (5 states)  │
+│      SkillSpec, AgentSpec         ├─ headless-runner.ts          │
+│      ConnectorSpec, PluginSpec    │   claude -p subprocess       │
+│                                   ├─ improvement-chain.ts        │
+│  codegen/                         │   convergence detection      │
+│  ├─ language-router.ts            └─ context-injector.ts         │
+│  │   30+ keyword→lang hints           markdown prompt builder   │
+│  ├─ template-engine.ts                                          │
+│  │   12-lang switch + assertNever cowork/                       │
+│  └─ multi-lang-scaffold.ts        ├─ task-router.ts (10 domains)│
+│      router + engine + metadata    ├─ plugin-recommender.ts      │
+│                                    │   14-plugin catalog          │
+│  plugin_gen/                       └─ knowledge-synthesizer.ts   │
+│  ├─ scaffold.ts (orchestrator)         quality tier aggregation  │
+│  ├─ manifest.ts (plugin.json)                                   │
+│  ├─ skill-writer.ts (YAML md)    cli.ts                         │
+│  ├─ agent-writer.ts              ├─ campaign                    │
+│  ├─ connectors-writer.ts         ├─ generate-plugin             │
+│  ├─ hooks-writer.ts (5 events)   ├─ codegen                     │
+│  ├─ lsp-config.ts (12 servers)   └─ cowork-task                 │
+│  └─ mcp-config.ts (3 transports)                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ### Test Results
 
 | Repo | Framework | Tests | Status |
@@ -239,7 +332,8 @@ Phase 5: Full Crawl Campaigns
 | claude-channel-dispatch-routing (channel) | vitest | 22/22 | PASS |
 | claude-channel-dispatch-routing (router) | vitest | 22/22 | PASS |
 | claude-channel-dispatch-routing (neon) | pytest | 5/5 | PASS |
-| **Total** | | **386/386** | **ALL PASS** |
+| claude-code-agents-typescript | vitest | 139/139 | PASS |
+| **Total** | | **525/525** | **ALL PASS** |
 
 ### Crawl Results
 
@@ -250,7 +344,8 @@ Phase 5: Full Crawl Campaigns
 | 3 | platform.claude.com (full) | 38 | 0.73 | PASS |
 | 4A | code.claude.com/docs/llms-full.txt | 71 | 0.82 | PASS |
 | 4B | platform.claude.com/llms-full.txt | 200 | 0.66 | PASS |
-| **Total** | | **330** | **0.74** | **ALL PASS** |
+| 5 | Video AI (kling, veo, seedance, higgsfield) | 200 planned | — | PLAN OK (no CLI) |
+| **Total** | | **330 + 200 planned** | **0.74** | **ALL PASS** |
 
 ### Language Coverage
 
