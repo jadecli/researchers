@@ -25,7 +25,9 @@ export type Event =
   | QualityScoreEvent
   | ContextDeltaEvent
   | DispatchEvent
-  | AuditEvent;
+  | AuditEvent
+  | VariantCompletedEvent
+  | ExperimentCompletedEvent;
 
 export interface ToolCallEvent {
   readonly type: 'tool_call';
@@ -76,6 +78,30 @@ export interface AuditEvent {
   readonly auditId: AuditId;
   readonly findings: readonly string[];
   readonly score: number;
+  readonly timestamp: Date;
+}
+
+export interface VariantCompletedEvent {
+  readonly type: 'variant_completed';
+  readonly variantId: unknown;
+  readonly strategy: string;
+  readonly pagesCrawled: number;
+  readonly toolCalls: number;
+  readonly agentTurns: number;
+  readonly qualityScore: unknown;
+  readonly efficiencyRatio: number;
+  readonly costUsd: number;
+  readonly durationMs: number;
+  readonly errors: readonly string[];
+  readonly timestamp: Date;
+}
+
+export interface ExperimentCompletedEvent {
+  readonly type: 'experiment_completed';
+  readonly experimentId: unknown;
+  readonly winner: unknown;
+  readonly confidence: number;
+  readonly variantCount: number;
   readonly timestamp: Date;
 }
 

@@ -3,6 +3,7 @@ vendor/agentskills/
 
 node_modules/
 dist/
+coverage/
 __pycache__/
 *.pyc
 *.pyo

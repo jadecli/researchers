@@ -32,7 +32,7 @@ repos:
 
       - id: tsc-agenttasks
         name: tsc (agenttasks)
-        entry: bash -c 'cd agenttasks && npx tsc --noEmit 2>/dev/null || true'
+        entry: bash -c 'cd agenttasks && npx tsc --noEmit'
         language: system
         files: ^agenttasks/.*\.tsx?$
         pass_filenames: false
@@ -40,7 +40,7 @@ repos:
       # ESLint for Next.js app
       - id: eslint-agenttasks
         name: eslint (agenttasks)
-        entry: bash -c 'cd agenttasks && npx eslint . 2>/dev/null || true'
+        entry: bash -c 'cd agenttasks && npx eslint .'
         language: system
         files: ^agenttasks/.*\.(ts|tsx)$
         pass_filenames: false

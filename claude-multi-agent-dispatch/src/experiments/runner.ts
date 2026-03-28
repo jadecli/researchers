@@ -137,10 +137,9 @@ export class ExperimentRunner {
     const writer = new JSONLWriter(path.join(variantDir, 'events.jsonl'));
     writer.append({
       type: 'variant_completed',
-      variantId: variant.id,
       strategy: variant.toolStrategy,
       ...result,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(),
     });
 
     return Ok(result);
@@ -326,7 +325,7 @@ export class ExperimentRunner {
       winner: result.winner,
       confidence: result.confidenceLevel,
       variantCount: result.variants.length,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(),
     });
   }
 

@@ -5,8 +5,6 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { USD } from '../types/core.js';
-import { toUSD } from '../types/core.js';
 
 // ── Efficiency Event Types ──────────────────────────────────────
 
