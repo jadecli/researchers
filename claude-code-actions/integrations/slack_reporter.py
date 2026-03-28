@@ -180,6 +180,135 @@ class SlackReporter:
 
         return self._post_message(blocks, text=header_text)
 
+    def post_ci_failure(
+        self,
+        repo: str,
+        branch: str,
+        commit_sha: str,
+        author: str,
+        failed_jobs: list[str],
+        run_url: str = "",
+        error_summary: str = "",
+    ) -> dict[str, Any]:
+        """Post a CI/CD failure alert to Slack.
+
+        Called by GitHub Actions on quality gate, security scan, or build failures.
+        """
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        jobs_text = "\n".join(f":x: {job}" for job in failed_jobs) if failed_jobs else ":x: Unknown job"
+
+        blocks: list[dict[str, Any]] = [
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": ":rotating_light: CI/CD Failure", "emoji": True},
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {"type": "mrkdwn", "text": f"*Repo:*\n{repo}"},
+                    {"type": "mrkdwn", "text": f"*Branch:*\n{branch}"},
+                    {"type": "mrkdwn", "text": f"*Author:*\n{author}"},
+                    {"type": "mrkdwn", "text": f"*Commit:*\n`{commit_sha[:8]}`"},
+                ],
+            },
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"*Failed Jobs:*\n{jobs_text}"},
+            },
+        ]
+
+        if error_summary:
+            blocks.append({
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"*Error Summary:*\n```{error_summary[:500]}```"},
+            })
+
+        blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": f"Failed at {now}"}]})
+
+        if run_url:
+            blocks.append({
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "View Failed Run"},
+                        "url": run_url,
+                        "style": "danger",
+                        "action_id": "view_failed_run",
+                    }
+                ],
+            })
+
+        return self._post_message(blocks, text=f"CI failed: {repo} ({branch})")
+
+    def post_security_alert(
+        self,
+        repo: str,
+        scan_type: str,
+        findings: list[dict[str, str]],
+        run_url: str = "",
+    ) -> dict[str, Any]:
+        """Post a security scan alert to Slack.
+
+        Args:
+            repo: Repository name
+            scan_type: Type of scan (secrets, PII, SSRF, dependency)
+            findings: List of {severity, file, description} dicts
+            run_url: Link to the CI run
+        """
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        critical = sum(1 for f in findings if f.get("severity") == "critical")
+        high = sum(1 for f in findings if f.get("severity") == "high")
+
+        severity_text = f":rotating_light: {critical} critical, :warning: {high} high"
+        finding_lines = []
+        for f in findings[:10]:
+            icon = ":rotating_light:" if f.get("severity") == "critical" else ":warning:"
+            finding_lines.append(f"{icon} `{f.get('file', '?')}`: {f.get('description', '?')}")
+
+        blocks: list[dict[str, Any]] = [
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": f":shield: Security Alert — {scan_type}", "emoji": True},
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {"type": "mrkdwn", "text": f"*Repo:*\n{repo}"},
+                    {"type": "mrkdwn", "text": f"*Findings:*\n{severity_text}"},
+                ],
+            },
+        ]
+
+        if finding_lines:
+            blocks.append({
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "\n".join(finding_lines)},
+            })
+
+        if len(findings) > 10:
+            blocks.append({
+                "type": "context",
+                "elements": [{"type": "mrkdwn", "text": f"Showing 10 of {len(findings)} findings"}],
+            })
+
+        blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": f"Scanned at {now}"}]})
+
+        if run_url:
+            blocks.append({
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "View Scan"},
+                        "url": run_url,
+                        "action_id": "view_scan",
+                    }
+                ],
+            })
+
+        return self._post_message(blocks, text=f"Security alert: {scan_type} in {repo}")
+
     @staticmethod
     def _extract_scores_from_report(report_path: str) -> dict[str, float]:
         """Attempt to extract quality scores from a generated HTML report.

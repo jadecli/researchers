@@ -1,0 +1,190 @@
+name: CI Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ── TypeScript Quality ────────────────────────────────────────
+  typescript-check:
+    name: TypeScript Strict Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: agenttasks/package-lock.json
+
+      - name: Install agenttasks deps
+        run: cd agenttasks && npm ci --no-audit
+
+      - name: TypeScript strict check
+        run: cd agenttasks && npx tsc --noEmit --strict
+
+      - name: Check return types on exports
+        run: |
+          # Find exported functions missing return types in changed files
+          CHANGED=$(git diff --name-only ${{ github.event.before || 'HEAD~1' }}..HEAD -- '*.ts' '*.tsx' || true)
+          MISSING=0
+          for file in $CHANGED; do
+            if [ -f "$file" ]; then
+              COUNT=$(grep -cE '^\s*export\s+(async\s+)?function\s+\w+\s*\([^)]*\)\s*\{' "$file" 2>/dev/null || echo 0)
+              TYPED=$(grep -cE '^\s*export\s+(async\s+)?function\s+\w+\s*\([^)]*\)\s*:\s*' "$file" 2>/dev/null || echo 0)
+              DIFF=$((COUNT - TYPED))
+              if [ "$DIFF" -gt 0 ]; then
+                echo "::warning file=$file::$DIFF exported function(s) missing return type"
+                MISSING=$((MISSING + DIFF))
+              fi
+            fi
+          done
+          if [ "$MISSING" -gt 0 ]; then
+            echo "::warning::$MISSING total exported functions missing return types"
+          fi
+
+  # ── Python Quality ──────────────────────────────────────────
+  python-check:
+    name: Python Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tools
+        run: pip install ruff mypy
+
+      - name: Ruff lint (changed files)
+        run: |
+          CHANGED=$(git diff --name-only ${{ github.event.before || 'HEAD~1' }}..HEAD -- '*.py' || true)
+          if [ -n "$CHANGED" ]; then
+            echo "$CHANGED" | xargs ruff check --output-format=github || true
+          fi
+
+      - name: Check return type annotations
+        run: |
+          CHANGED=$(git diff --name-only ${{ github.event.before || 'HEAD~1' }}..HEAD -- '*.py' || true)
+          MISSING=0
+          for file in $CHANGED; do
+            if [ -f "$file" ]; then
+              COUNT=$(grep -cE '^\s*def\s+[a-zA-Z]\w*\s*\(' "$file" 2>/dev/null | grep -v '__' || echo 0)
+              TYPED=$(grep -cE '^\s*def\s+[a-zA-Z]\w*\s*\([^)]*\)\s*->' "$file" 2>/dev/null || echo 0)
+              DIFF=$((COUNT - TYPED))
+              if [ "$DIFF" -gt 0 ]; then
+                echo "::warning file=$file::$DIFF function(s) missing return type annotation"
+                MISSING=$((MISSING + DIFF))
+              fi
+            fi
+          done
+
+  # ── Architecture Check ─────────────────────────────────────
+  architecture-check:
+    name: Architecture Boundary Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check cross-boundary imports
+        run: |
+          ERRORS=0
+          CHANGED=$(git diff --name-only ${{ github.event.before || 'HEAD~1' }}..HEAD || true)
+          for file in $CHANGED; do
+            [ -f "$file" ] || continue
+            SUBREPO=$(echo "$file" | cut -d/ -f1)
+
+            # TypeScript cross-boundary imports
+            if echo "$file" | grep -qE '\.(ts|tsx)$'; then
+              BAD=$(grep -nE "from\s+['\"]\.\./(claude-|agenttasks)" "$file" 2>/dev/null || true)
+              if [ -n "$BAD" ]; then
+                echo "::error file=$file::Cross-boundary import detected — sub-repos must not import siblings"
+                ERRORS=$((ERRORS + 1))
+              fi
+            fi
+
+            # Python cross-boundary imports
+            if echo "$file" | grep -qE '\.py$'; then
+              BAD=$(grep -nE "^(from|import)\s+(claude_code|claude_multi|claude_channel|claude_dspy|agenttasks)\b" "$file" 2>/dev/null || true)
+              if [ -n "$BAD" ]; then
+                echo "::warning file=$file::Possible cross-boundary Python import — verify intentional"
+              fi
+            fi
+          done
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "::error::$ERRORS cross-boundary import violation(s) found"
+            exit 1
+          fi
+
+  # ── Security Scan ──────────────────────────────────────────
+  security-scan:
+    name: Security Quick Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for secrets
+        run: |
+          ERRORS=0
+          CHANGED=$(git diff --name-only ${{ github.event.before || 'HEAD~1' }}..HEAD || true)
+          for file in $CHANGED; do
+            [ -f "$file" ] || continue
+            echo "$file" | grep -qE '\.(lock|png|jpg|woff2|ico)$' && continue
+
+            if grep -qE 'AKIA[0-9A-Z]{16}' "$file" 2>/dev/null; then
+              echo "::error file=$file::AWS access key detected"
+              ERRORS=$((ERRORS + 1))
+            fi
+            if grep -qE '-----BEGIN (RSA |EC )?PRIVATE KEY' "$file" 2>/dev/null; then
+              echo "::error file=$file::Private key detected"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done
+          if [ "$ERRORS" -gt 0 ]; then
+            exit 1
+          fi
+
+  # ── Slack Notification on Failure ──────────────────────────
+  notify-failure:
+    name: Slack Failure Alert
+    runs-on: ubuntu-latest
+    needs: [typescript-check, python-check, architecture-check, security-scan]
+    if: failure()
+    steps:
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "CI Quality Gate FAILED on ${{ github.repository }}"
+            blocks:
+              - type: "header"
+                text:
+                  type: "plain_text"
+                  text: "CI Quality Gate Failed"
+              - type: "section"
+                fields:
+                  - type: "mrkdwn"
+                    text: "*Repo:*\n${{ github.repository }}"
+                  - type: "mrkdwn"
+                    text: "*Branch:*\n${{ github.ref_name }}"
+                  - type: "mrkdwn"
+                    text: "*Author:*\n${{ github.actor }}"
+                  - type: "mrkdwn"
+                    text: "*Commit:*\n`${{ github.sha }}`"
+              - type: "actions"
+                elements:
+                  - type: "button"
+                    text:
+                      type: "plain_text"
+                      text: "View Run"
+                    url: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

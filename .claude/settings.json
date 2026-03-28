@@ -19,6 +19,26 @@
             "type": "command",
             "command": ".claude/hooks/validate-commit.sh",
             "timeout": 10000
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/quality-gate.sh",
+            "timeout": 15000
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-pr-gate.sh",
+            "timeout": 60000
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__github__create_pull_request",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-pr-gate.sh",
+            "timeout": 60000
           }
         ]
       },
