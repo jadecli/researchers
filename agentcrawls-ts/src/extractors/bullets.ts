@@ -106,14 +106,14 @@ function isBreaking(description: string, rawCategory?: string): boolean {
 // ── Extraction with AI (ax-llm/ax) ──────────────────────────────
 /**
  * Extract bullets using @ax-llm/ax AxGen (DSPy-style generation).
- * Requires ANTHROPIC_API_KEY env var.
+ * Requires CLAUDE_CODE_OAUTH_TOKEN env var.
  * Falls back to regex extraction if no API key is available.
  */
 export async function extractBulletsAI(
   section: ChangelogSection,
   options?: { apiKey?: string; model?: AxAIAnthropicModel },
 ): Promise<ChangelogBullet[]> {
-  const apiKey = options?.apiKey ?? process.env['ANTHROPIC_API_KEY'];
+  const apiKey = options?.apiKey ?? process.env['CLAUDE_CODE_OAUTH_TOKEN'];
   if (!apiKey) {
     return extractBulletsRegex(section);
   }
