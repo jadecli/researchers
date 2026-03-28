@@ -28,7 +28,7 @@ jobs:
             claude-multi-agent-dispatch/package-lock.json
             agentcrawls-ts/package-lock.json
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v7
 
       - name: Setup
         run: make setup
