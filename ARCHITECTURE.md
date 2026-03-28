@@ -426,6 +426,43 @@ Phase 6B: TypeScript Port (Boris Cherny strict typing)
 | 10 | claude-code | `scrapy-magicfields` imports removed `BaseItem` | Disabled middleware | d6854a6 |
 | 11 | claude-code | `docs_spider` default URL wrong domain | Changed to `code.claude.com` | d6854a6 |
 
+### agenttasks Webapp Pages
+
+| Route | Type | Purpose | Codebase References |
+|-------|------|---------|---------------------|
+| `/` | Static | Overview with crawl stats | — |
+| `/agent-loop` | Client (`motion/react`) | Interactive agent loop visualizer | DSPy signatures, bloom filters, Shannon thinking |
+| `/what-are-tasks` | Static | Task lifecycle documentation | — |
+| `/specification` | Static | Task schema specification | — |
+| `/rounds` | Static | Crawl quality tracking | reporting.fact_crawl_quality |
+| `/tasks` | Client | Task queue with status toggle | — |
+| `/experiments` | Static | A/B experiment list | — |
+| `/experiments/[id]` | Client | Experiment analytics with charts | MiniBarChart, RatioSparkline |
+
+```
+agenttasks/src/app/
+├─ layout.tsx           ← Root layout, sidebar nav, local Geist fonts
+├─ globals.css          ← Tailwind v4, scrollbar-hide for iOS
+├─ page.tsx             ← / (overview)
+├─ agent-loop/
+│   └─ page.tsx         ← motion.dev animated loop visualizer
+│                          ├─ LoopRing (SVG orbital diagram)
+│                          ├─ PhaseCard (spring-animated expandable)
+│                          ├─ ToolGrid (bloom filter indicators)
+│                          ├─ StepTimeline (play/pause walkthrough)
+│                          └─ PromptFlow (Shannon 5-step mapping)
+├─ what-are-tasks/
+├─ specification/
+├─ rounds/
+├─ tasks/
+├─ experiments/
+│   ├─ page.tsx
+│   └─ [id]/page.tsx
+└─ api/
+    ├─ tasks/route.ts
+    └─ pages/route.ts
+```
+
 ### Key Architectural Decisions
 
 1. **Boris Cherny strict types** — Branded types prevent ID confusion at compile time. Every repo uses `type Brand<K, T> = K & { readonly __brand: T }`.
