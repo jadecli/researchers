@@ -1,0 +1,28 @@
+{
+  "name": "agentcrawls-ts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Changelog crawler with crawlee, bloom-filters, and @ax-llm/ax for ground-truth ingestion",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "crawl": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "crawlee": "^3.12.0",
+    "bloom-filters": "^3.0.4",
+    "@ax-llm/ax": "^19.0.37",
+    "zod": "^3.23.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "vitest": "^3.1.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0"
+  }
+}
