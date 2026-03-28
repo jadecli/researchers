@@ -1,10 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import Link from "next/link";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const geistSans = localFont({
+  src: "../../public/geist-latin.woff2",
+  variable: "--font-geist-sans",
+  display: "swap",
+});
+
+const geistMono = localFont({
+  src: "../../public/geist-mono-latin.woff2",
+  variable: "--font-geist-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "AgentTasks",
@@ -23,8 +32,10 @@ const NAV = [
   { label: "Overview", href: "/", icon: "◉" },
   { label: "Docs", href: "/what-are-tasks", icon: "?" },
   { label: "Spec", href: "/specification", icon: "⎕" },
+  { label: "Pages", href: "/pages", icon: "◫" },
   { label: "Rounds", href: "/rounds", icon: "↻" },
   { label: "Tasks", href: "/tasks", icon: "☐" },
+  { label: "Experiments", href: "/experiments", icon: "⚗" },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

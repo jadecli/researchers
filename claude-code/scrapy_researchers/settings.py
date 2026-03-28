@@ -77,7 +77,14 @@ FEEDS = {
 EXTENSIONS = {
     # Spidermon — data validation, stats monitoring, and notifications
     "spidermon.contrib.scrapy.extensions.MonitorSuite": 510,
+    # Efficiency tracking — tool calls per page crawled time series
+    "scrapy_researchers.metrics.efficiency_tracker.EfficiencyTracker": 400,
 }
+
+# ── Efficiency Metrics ─────────────────────────────────────────
+EFFICIENCY_WINDOW_SECONDS = 60  # 1-minute buckets for time series
+EFFICIENCY_METRICS_DIR = "metrics"
+AGENT_EVENTS_DIR = "../claude-multi-agent-sdk"
 
 # Spidermon settings
 SPIDERMON_ENABLED = True

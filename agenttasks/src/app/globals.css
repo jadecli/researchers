@@ -41,3 +41,13 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--ui-border); border-radius: 2px; }
 :focus-visible { outline: 2px solid var(--brand-orange); outline-offset: 2px; border-radius: 4px; }
 ::selection { background: rgba(217, 119, 87, 0.3); }
+
+/* Hide scrollbar for iOS-friendly horizontal pill scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
