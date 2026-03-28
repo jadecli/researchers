@@ -1,0 +1,137 @@
+# YAML agent definitions for agentcommits workflows
+# Used by claude-multi-agent-dispatch to route agentcommits tasks
+
+agents:
+  # ── Crawl Agents ──────────────────────────────────────────────
+  commit-convention-crawler:
+    model: claude-haiku-4-5-20251001
+    description: Crawl GitHub repos for commit convention patterns
+    tools:
+      - WebFetch
+      - Read
+      - Grep
+      - Glob
+    max_tokens: 4096
+    system_prompt: |
+      You are a focused crawler that extracts commit convention information from
+      GitHub repositories. For each repo, gather:
+      1. Commit message format (conventional commits? custom?)
+      2. Release automation (Release Please? semantic-release?)
+      3. Changelog generation approach
+      4. Any CLAUDE.md or AGENTS.md files
+      Return structured JSON with findings.
+
+  release-please-analyzer:
+    model: claude-sonnet-4-6
+    description: Analyze Release Please configurations and extension points
+    tools:
+      - WebFetch
+      - Read
+      - Grep
+    max_tokens: 8192
+    system_prompt: |
+      You analyze Release Please configurations to identify extension points
+      for agent metadata trailers. Focus on:
+      1. Strategy implementations (how commit types map to version bumps)
+      2. Plugin system (how to process custom footer metadata)
+      3. Changelog generation (how to include agent attribution)
+      4. Configuration schema (where agent fields would be defined)
+
+  # ── Classification Agents ─────────────────────────────────────
+  commit-classifier:
+    model: claude-haiku-4-5-20251001
+    description: Classify commits as agent-authored or human-authored
+    tools:
+      - Read
+      - Grep
+    max_tokens: 2048
+    system_prompt: |
+      You classify git commits by authorship type. Analyze the commit message,
+      diff patterns, and trailer presence to determine:
+      - agent-only: Entirely agent-generated
+      - agent-primary: Agent did most work, human directed
+      - collaborative: Significant human and agent contribution
+      - human-primary: Human wrote most, agent assisted
+      - human-only: No agent involvement
+      Return: { authorship_type, confidence, reasoning }
+
+  trailer-validator:
+    model: claude-haiku-4-5-20251001
+    description: Validate agentcommits trailers against specification
+    tools:
+      - Read
+    max_tokens: 2048
+    system_prompt: |
+      You validate agent trailers in git commit messages against the agentcommits
+      specification. Check:
+      1. Required fields present (Agent-Id, Agent-Authorship)
+      2. Valid enum values (confidence: high/medium/low)
+      3. Correct format (Agent-Cost-USD is a float, tokens are integers)
+      4. No unknown trailer keys
+      Return: { is_valid, completeness_score, errors[] }
+
+  # ── Eval Agents ───────────────────────────────────────────────
+  agentcommits-evaluator:
+    model: claude-sonnet-4-6
+    description: Evaluate agentcommits trailer quality across a repo
+    tools:
+      - Read
+      - Grep
+      - Glob
+      - WebFetch
+    max_tokens: 16384
+    system_prompt: |
+      You evaluate the quality and consistency of agentcommits trailers across
+      a git repository. Generate metrics for:
+      1. Trailer adoption rate (% of agent commits with trailers)
+      2. Completeness distribution (histogram of completeness scores)
+      3. Convention compliance (% valid conventional commits)
+      4. Cost tracking accuracy (Agent-Cost-USD consistency)
+      5. Confidence calibration (Agent-Confidence vs actual quality)
+      Return structured eval results for the agentevals pipeline.
+
+  # ── Research Agents ───────────────────────────────────────────
+  agentcommits-researcher:
+    model: claude-opus-4-6
+    description: Deep research on commit convention ecosystem for agentcommits spec
+    tools:
+      - WebFetch
+      - Read
+      - Grep
+      - Glob
+      - Write
+    max_tokens: 32768
+    system_prompt: |
+      You are a research agent investigating the commit convention ecosystem
+      to inform the agentcommits specification. Your research covers:
+      1. Conventional commits v1.0.0 spec — footer/trailer support
+      2. Release Please — extension points for agent metadata
+      3. Stainless-API — production patterns with conventional commits
+      4. Community tools — commitlint, changelogen, semantic-release
+      Write findings to .claude/research/agentcommits.md in structured format.
+
+# ── Dispatch Routing ──────────────────────────────────────────
+dispatch:
+  # Route by conventional commit type
+  by_commit_type:
+    feat: [commit-classifier, trailer-validator, agentcommits-evaluator]
+    fix: [commit-classifier, trailer-validator]
+    chore: [trailer-validator]
+    docs: [commit-classifier]
+    refactor: [commit-classifier, trailer-validator]
+    test: [trailer-validator]
+    ci: [trailer-validator]
+
+  # Route by task phase
+  by_phase:
+    crawl: [commit-convention-crawler, release-please-analyzer]
+    classify: [commit-classifier, trailer-validator]
+    evaluate: [agentcommits-evaluator]
+    research: [agentcommits-researcher]
+
+# ── Bloom Filter Config ──────────────────────────────────────
+bloom_filter:
+  expected_items: 10000
+  false_positive_rate: 0.01
+  index_on: "Agent-Id"  # Trailer key that triggers bloom filter indexing
+  storage: "neon-pg18"  # Persist bloom filter in Neon for cross-session use

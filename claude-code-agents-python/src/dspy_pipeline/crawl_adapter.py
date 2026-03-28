@@ -17,6 +17,9 @@ class SpiderType(str, Enum):
     PLATFORM = "platform_spider"
     ANTHROPIC = "anthropic_spider"
     CLAUDE_COM = "claude_com_spider"
+    GITHUB = "github_spider"
+    SPOTIFY = "spotify_spider"
+    LLMS_FULL = "llms_full_spider"
 
 
 class CrawlPriority(str, Enum):
@@ -132,7 +135,7 @@ def _route_spider(url: str) -> SpiderType:
     elif "github.com/modelcontextprotocol" in url:
         return SpiderType.DOCS  # Use docs spider for MCP SDK docs
     elif "github.com" in url:
-        return SpiderType.ANTHROPIC  # Generic GitHub → anthropic spider
+        return SpiderType.GITHUB  # GitHub repos → github spider
     elif "neon.tech" in url:
         return SpiderType.PLATFORM  # Neon docs → platform spider
     else:
