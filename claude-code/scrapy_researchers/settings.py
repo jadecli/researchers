@@ -68,6 +68,7 @@ ITEM_PIPELINES = {
     "scrapy_researchers.pipelines.DedupPipeline": 100,
     "scrapy_researchers.pipelines.QualityScoringPipeline": 200,
     "scrapy_researchers.pipelines.ImprovementFeedbackPipeline": 300,
+    "scrapy_researchers.pipelines.NeonSkillsPipeline": 400,
 }
 
 # ── Feeds ────────────────────────────────────────────────────────

@@ -13,7 +13,7 @@ from typing import Any
 from scrapy import Spider
 from scrapy.exceptions import DropItem
 
-from scrapy_researchers.bloom_filter import BloomFilter
+from scrapy_researchers.bloom_filter import BloomDupeFilter  # noqa: F401 — used in settings
 
 logger = logging.getLogger(__name__)
 
@@ -249,3 +249,134 @@ class ImprovementFeedbackPipeline:
             hints.append("No headings found - check heading extraction")
 
         return hints
+
+
+class NeonSkillsPipeline:
+    """Persists official skill items to runtime.skill_events in Neon Postgres.
+
+    Only active when DATABASE_URL is set. Falls back silently to allow
+    local development without a database connection.
+
+    Follows Kimball runtime layer conventions:
+    - Append-only inserts into runtime.skill_events
+    - Content hash for change detection across crawl rounds
+    - ON CONFLICT upsert on (org, repo, skill_name) to track latest state
+    """
+
+    INSERT_SQL = """
+        INSERT INTO runtime.skill_events (
+            url, org, repo, skill_name, skill_description,
+            skill_dir, file_path, branch, license,
+            frontmatter, body, content_hash,
+            quality_score, stars, round_number,
+            has_examples, has_scripts, word_count
+        ) VALUES (
+            %(url)s, %(org)s, %(repo)s, %(skill_name)s, %(skill_description)s,
+            %(skill_dir)s, %(file_path)s, %(branch)s, %(license)s,
+            %(frontmatter)s, %(body)s, %(content_hash)s,
+            %(quality_score)s, %(stars)s, %(round_number)s,
+            %(has_examples)s, %(has_scripts)s, %(word_count)s
+        )
+        ON CONFLICT (org, repo, skill_name) DO UPDATE SET
+            skill_description = EXCLUDED.skill_description,
+            body = EXCLUDED.body,
+            content_hash = EXCLUDED.content_hash,
+            quality_score = EXCLUDED.quality_score,
+            stars = EXCLUDED.stars,
+            round_number = EXCLUDED.round_number,
+            has_examples = EXCLUDED.has_examples,
+            has_scripts = EXCLUDED.has_scripts,
+            word_count = EXCLUDED.word_count,
+            updated_at = now()
+        WHERE runtime.skill_events.content_hash != EXCLUDED.content_hash
+    """
+
+    def __init__(self) -> None:
+        self._client = None
+        self._enabled = False
+        self._count = 0
+        self._skipped = 0
+
+    def open_spider(self, spider: Spider) -> None:
+        database_url = os.environ.get("DATABASE_URL")
+        if not database_url:
+            logger.info("NeonSkillsPipeline: DATABASE_URL not set, skipping Neon persistence")
+            return
+
+        # Only activate for the official_skills_spider
+        if spider.name != "official_skills_spider":
+            return
+
+        try:
+            # Import here to avoid hard dependency when DATABASE_URL is not set
+            from claude_channel_dispatch_routing.persistence.neon_client import NeonClient
+        except ImportError:
+            try:
+                # Fallback: try relative import path
+                import sys
+                sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "claude-channel-dispatch-routing"))
+                from src.persistence.neon_client import NeonClient
+            except ImportError:
+                logger.warning("NeonSkillsPipeline: NeonClient not importable, skipping")
+                return
+
+        try:
+            self._client = NeonClient(database_url=database_url, min_conn=1, max_conn=3)
+            self._enabled = True
+            logger.info("NeonSkillsPipeline: connected to Neon")
+        except Exception as e:
+            logger.warning(f"NeonSkillsPipeline: connection failed: {e}")
+
+    def process_item(self, item: dict[str, Any], spider: Spider) -> dict[str, Any]:
+        if not self._enabled or spider.name != "official_skills_spider":
+            return item
+
+        metadata = item.get("metadata", {})
+        skill_spec = item.get("skill_spec", {})
+
+        # Only persist items with skill_spec (from official_skills_spider)
+        if not skill_spec:
+            return item
+
+        content_hash = hashlib.sha256(
+            item.get("content_markdown", "").encode("utf-8")
+        ).hexdigest()
+
+        params = {
+            "url": item.get("url", ""),
+            "org": metadata.get("org", ""),
+            "repo": metadata.get("repo", ""),
+            "skill_name": skill_spec.get("name", ""),
+            "skill_description": skill_spec.get("description", "")[:500],
+            "skill_dir": metadata.get("skill_dir", ""),
+            "file_path": metadata.get("file_path", ""),
+            "branch": metadata.get("branch", "main"),
+            "license": metadata.get("license", "unknown"),
+            "frontmatter": json.dumps(skill_spec.get("frontmatter", {})),
+            "body": skill_spec.get("body", ""),
+            "content_hash": content_hash,
+            "quality_score": item.get("quality_score", 0.0),
+            "stars": int(metadata.get("stars", 0)),
+            "round_number": int(metadata.get("round_number", 0)),
+            "has_examples": metadata.get("has_examples", "False") == "True",
+            "has_scripts": metadata.get("has_scripts", "False") == "True",
+            "word_count": int(metadata.get("word_count", 0)),
+        }
+
+        try:
+            self._client.execute(self.INSERT_SQL, params)
+            self._count += 1
+        except Exception as e:
+            self._skipped += 1
+            logger.warning(f"NeonSkillsPipeline: insert failed for {params['skill_name']}: {e}")
+
+        return item
+
+    def close_spider(self, spider: Spider) -> None:
+        if self._enabled:
+            logger.info(
+                f"NeonSkillsPipeline: {self._count} skills persisted, "
+                f"{self._skipped} skipped"
+            )
+            if self._client:
+                self._client.close()
