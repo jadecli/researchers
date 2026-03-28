@@ -7,6 +7,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { classifyQuery, determineScale, buildSubagentTasks } from '../agent/orchestrator.js';
+import { addMemoryTools } from './memory.js';
 
 // ── Response Format ─────────────────────────────────────────────
 const ResponseFormat = z.enum(['concise', 'detailed', 'json']);
@@ -155,6 +156,10 @@ export function createResearchMcpServer(): InstanceType<typeof McpServer> {
       ],
     }),
   );
+
+  // Memory persistence tools (cross-session, cross-surface)
+  // Derived from richlira/compass-mcp, refactored with branded types + Result<T,E>
+  addMemoryTools(server);
 
   return server;
 }
