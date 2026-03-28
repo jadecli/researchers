@@ -12,6 +12,10 @@
     "test:dispatch": "cd claude-multi-agent-dispatch && npx vitest run",
     "test:crawls": "cd agentcrawls-ts && npx vitest run",
     "test:all": "npm run test:sdk && npm run test:dispatch && npm run test:crawls",
+    "coverage:sdk": "cd claude-multi-agent-sdk && npx vitest run --coverage",
+    "coverage:dispatch": "cd claude-multi-agent-dispatch && npx vitest run --coverage",
+    "coverage:crawls": "cd agentcrawls-ts && npx vitest run --coverage",
+    "coverage:all": "npm run coverage:sdk && npm run coverage:dispatch && npm run coverage:crawls",
     "precommit": "pre-commit run --all-files",
     "crawl:changelogs": "cd agentcrawls-ts && npx tsx src/index.ts",
     "prebuild:verify": "cd agenttasks && npm install --silent && npm run build"
