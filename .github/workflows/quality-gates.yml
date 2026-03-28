@@ -1,0 +1,91 @@
+name: Quality Gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            claude-multi-agent-sdk/package-lock.json
+            claude-multi-agent-dispatch/package-lock.json
+            agentcrawls-ts/package-lock.json
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install Python tools
+        run: |
+          uv tool install pre-commit
+          uv tool install radon
+
+      - name: Install Node dependencies
+        run: |
+          cd claude-multi-agent-sdk && npm install --legacy-peer-deps --silent
+          cd ../claude-multi-agent-dispatch && npm install --legacy-peer-deps --silent
+          cd ../agentcrawls-ts && npm install --silent
+
+      - name: Run pre-commit (all hooks)
+        run: pre-commit run --all-files
+
+      - name: TypeScript type check (SDK)
+        run: cd claude-multi-agent-sdk && npx tsc --noEmit
+
+      - name: TypeScript type check (dispatch)
+        run: cd claude-multi-agent-dispatch && npx tsc --noEmit
+
+      - name: TypeScript type check (agentcrawls-ts)
+        run: cd agentcrawls-ts && npx tsc --noEmit
+
+      - name: Test SDK
+        run: cd claude-multi-agent-sdk && npx vitest run
+
+      - name: Test dispatch
+        run: cd claude-multi-agent-dispatch && npx vitest run
+
+      - name: Test agentcrawls-ts
+        run: cd agentcrawls-ts && npx vitest run
+
+      - name: Python tests
+        run: python3 -m pytest claude-code-agents-python/tests/ -x --tb=short 2>/dev/null || true
+
+  claude-review:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' && failure() }}
+    needs: lint-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Claude CI review (root cause + fix recommendation)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            The CI quality gates failed on this PR. Analyze the failures,
+            identify root causes, and post a PR comment with:
+            1. Which checks failed and why
+            2. Specific files and lines causing failures
+            3. Recommended fixes (code snippets where possible)
+            Do NOT approve the PR. Only diagnose and recommend.
+
+      - name: Alert via channel
+        if: failure()
+        env:
+          CHANNEL_WEBHOOK_URL: ${{ secrets.CHANNEL_WEBHOOK_URL }}
+        run: |
+          if [ -n "$CHANNEL_WEBHOOK_URL" ]; then
+            curl -s -X POST "$CHANNEL_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "{\"text\": \"CI failed on PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}\"}" || true
+          fi
