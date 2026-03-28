@@ -1,6 +1,6 @@
 # claude-multi-agent-sdk
 
-Production-ready TypeScript multi-agent orchestration patterns for Claude, following Boris Cherny's strict typing discipline.
+See root ARCHITECTURE.md § Orchestration Layer. Production-ready TypeScript multi-agent orchestration patterns for Claude, following Boris Cherny's strict typing discipline.
 
 ## Architecture
 - **src/types/core.ts** — Branded types, Result<T,E>, discriminated unions, agent state machine

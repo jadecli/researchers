@@ -1,6 +1,6 @@
 # claude-dspy-crawl-planning
 
-Shannon-thinking crawl planner using Claude Agent SDK v2 canonical objects.
+See root ARCHITECTURE.md § Orchestration Layer. Shannon-thinking crawl planner using Claude Agent SDK v2 canonical objects.
 Forked patterns from jadecli/shannon-thinking. Iterative multi-round crawler
 covering all platform.claude.com doc categories.
 

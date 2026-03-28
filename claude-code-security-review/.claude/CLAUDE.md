@@ -1,6 +1,6 @@
 # Security Review System
 
-Multi-language security scanners for Scrapy spiders, crawled data, and generated plugins.
+See root ARCHITECTURE.md § Support Layer. Multi-language security scanners for Scrapy spiders, crawled data, and generated plugins.
 
 ## Coverage Areas
 

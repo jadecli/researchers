@@ -1,6 +1,6 @@
 # claude-multi-agent-dispatch
 
-Unified multi-agent dispatch system with 10 iterative crawl rounds. Combines abstractions from bloom (5-stage pipeline), petri (auditor agent, transcript types, alignment judge), safety-tooling (unified inference API), shannon-thinking (structured problem decomposition with confidence tracking), and MCP SDKs (handler registration, transport abstraction).
+See root ARCHITECTURE.md § Orchestration Layer. Unified multi-agent dispatch system with 10 iterative crawl rounds. Combines abstractions from bloom (5-stage pipeline), petri (auditor agent, transcript types, alignment judge), safety-tooling (unified inference API), shannon-thinking (structured problem decomposition with confidence tracking), and MCP SDKs (handler registration, transport abstraction).
 
 ## Architecture
 - **src/types/** — Branded types, Result<T,E>, discriminated unions for dispatch, transcript, thinking, quality
