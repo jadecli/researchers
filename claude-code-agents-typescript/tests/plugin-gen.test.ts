@@ -10,6 +10,12 @@ import {
   createAgentSpec,
   createConnectorSpec,
 } from '../src/models/plugin-spec.js';
+import {
+  OFFICIAL_LSP_PLUGINS,
+  resolveOfficialPluginId,
+  writeLspConfig,
+} from '../src/plugin_gen/lsp-config.js';
+import { SUPPORTED_LANGUAGES } from '../src/models/language.js';
 
 describe('Plugin Generation', () => {
   let tmpDir: string;
@@ -183,6 +189,117 @@ describe('Plugin Generation', () => {
     expect(content.pyright).toBeDefined();
     expect(content.gopls).toBeDefined();
     expect(content.pyright.languages).toContain('python');
+  });
+
+  // ── LSP Config Refactor Tests ─────────────────────────────────
+  // WHY: Our lsp-config.ts had 132 lines of hardcoded server binary paths,
+  // args, and workspace settings. The claude-plugins-official repo ships 14
+  // authoritative, Anthropic-maintained LSP plugins (pyright-lsp, gopls-lsp,
+  // etc.) that handle binary resolution. We should reference those canonical
+  // plugin IDs instead of maintaining a stale copy of their config.
+
+  describe('OFFICIAL_LSP_PLUGINS registry', () => {
+    it('maps every supported language to an official plugin ID', () => {
+      // WHY: If we add a language to SUPPORTED_LANGUAGES but forget to map it
+      // to an official plugin, the generated config will silently fall back to
+      // a generic stub. This test enforces that every language has a plugin.
+      // NOTE: scala has no official metals-lsp yet — it maps to lua-lsp as a
+      // placeholder. When Anthropic ships metals-lsp, update the registry.
+      const KNOWN_EXCEPTIONS = new Set(['scala']);
+      for (const lang of SUPPORTED_LANGUAGES) {
+        if (KNOWN_EXCEPTIONS.has(lang)) continue;
+        const pluginId = resolveOfficialPluginId(lang);
+        expect(pluginId, `missing plugin for ${lang}`).toBeDefined();
+        expect(pluginId!.endsWith('-lsp'), `${lang} → ${pluginId} should end with -lsp`).toBe(true);
+      }
+    });
+
+    it('documents languages without a matching official plugin', () => {
+      // WHY: Be explicit about which languages lack a real official plugin.
+      // When an official metals-lsp ships, this test will remind us to update.
+      const scalaPluginId = resolveOfficialPluginId('scala');
+      expect(scalaPluginId).toBe('lua-lsp'); // placeholder — not semantically correct
+    });
+
+    it('contains only valid plugin IDs from claude-plugins-official', () => {
+      // WHY: Plugin IDs must match the official repo names exactly. A typo
+      // means the plugin won't install. This test documents the canonical set.
+      const knownOfficialPlugins = [
+        'pyright-lsp', 'typescript-lsp', 'gopls-lsp', 'rust-analyzer-lsp',
+        'jdtls-lsp', 'kotlin-lsp', 'swift-lsp', 'csharp-lsp',
+        'php-lsp', 'ruby-lsp', 'elixir-ls-lsp', 'lua-lsp',
+      ];
+      for (const entry of Object.values(OFFICIAL_LSP_PLUGINS)) {
+        expect(
+          knownOfficialPlugins,
+          `${entry.pluginId} is not a known official plugin`,
+        ).toContain(entry.pluginId);
+      }
+    });
+
+    it('does NOT contain hardcoded binary paths or args', () => {
+      // WHY: The whole point of this refactor is to stop maintaining binary
+      // paths. The official plugins handle that. Our registry should only
+      // store the plugin ID and language mapping — nothing about binaries.
+      for (const [lang, entry] of Object.entries(OFFICIAL_LSP_PLUGINS)) {
+        expect(entry, `${lang} entry should not have 'command'`).not.toHaveProperty('command');
+        expect(entry, `${lang} entry should not have 'args'`).not.toHaveProperty('args');
+        expect(entry, `${lang} entry should not have 'initializationOptions'`).not.toHaveProperty('initializationOptions');
+        expect(entry, `${lang} entry should not have 'workspaceSettings'`).not.toHaveProperty('workspaceSettings');
+      }
+    });
+  });
+
+  describe('writeLspConfig generates plugin references', () => {
+    it('writes plugin ID references instead of server configs', () => {
+      // WHY: The old .lsp.json contained full server configs (command, args,
+      // workspaceSettings). The new one should reference official plugins so
+      // the runtime can resolve them from the installed plugin.
+      const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lsp-ref-'));
+      writeLspConfig(['pyright', 'gopls'], outDir);
+      const content = JSON.parse(
+        fs.readFileSync(path.join(outDir, '.lsp.json'), 'utf-8'),
+      );
+
+      expect(content.pyright.pluginId).toBe('pyright-lsp');
+      expect(content.pyright.languages).toContain('python');
+      expect(content.gopls.pluginId).toBe('gopls-lsp');
+      expect(content.gopls.languages).toContain('go');
+
+      fs.rmSync(outDir, { recursive: true, force: true });
+    });
+
+    it('falls back gracefully for unknown server names', () => {
+      // WHY: Users may pass custom LSP server names that aren't in the official
+      // catalog. We should still generate a config entry, just without a plugin
+      // reference, and flag it as custom.
+      const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lsp-custom-'));
+      writeLspConfig(['custom-lsp'], outDir);
+      const content = JSON.parse(
+        fs.readFileSync(path.join(outDir, '.lsp.json'), 'utf-8'),
+      );
+
+      expect(content['custom-lsp'].pluginId).toBeUndefined();
+      expect(content['custom-lsp'].custom).toBe(true);
+      expect(content['custom-lsp'].command).toBe('custom-lsp');
+
+      fs.rmSync(outDir, { recursive: true, force: true });
+    });
+
+    it('resolves language-name inputs to official plugin IDs', () => {
+      // WHY: Callers may pass language names ('python', 'go') instead of
+      // server names ('pyright', 'gopls'). We should resolve both.
+      const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lsp-lang-'));
+      writeLspConfig(['python', 'rust'], outDir);
+      const content = JSON.parse(
+        fs.readFileSync(path.join(outDir, '.lsp.json'), 'utf-8'),
+      );
+
+      expect(content.pyright.pluginId).toBe('pyright-lsp');
+      expect(content['rust-analyzer'].pluginId).toBe('rust-analyzer-lsp');
+
+      fs.rmSync(outDir, { recursive: true, force: true });
+    });
   });
 
   it('generates MCP config', () => {
