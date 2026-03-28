@@ -12,8 +12,6 @@ name: Gitflow
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
-  pull_request_target:
-    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -37,8 +35,9 @@ jobs:
 
   # Enforce conventional commit format on PR titles
   # This ensures squash-merge commits follow the convention
+  # Uses pull_request (not pull_request_target) to avoid org token restrictions
   conventional-commits:
-    if: github.event_name == 'pull_request_target'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
