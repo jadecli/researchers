@@ -11,23 +11,118 @@
 
 import type { ExtractedPage } from "../extractors/html-extractor.js";
 
-// ── Official Publisher Allowlist ────────────────────────────────────
-// Only these verified publishers are crawled. Non-official skills
-// introduce security risk (adversarial context injection, phantom
-// dependency attacks). See: https://skills.sh/audits
+// ── Official Publisher Registry ─────────────────────────────────────
+// Source of truth: https://skills.sh/official (78 verified vendors).
+// Only these publishers are crawled. Non-official skills introduce
+// security risk (adversarial context injection, phantom dependency
+// attacks, no version pinning). See: https://skills.sh/audits
+//
+// Each entry maps publisher → { repo, skills_count } as listed on
+// skills.sh/official. This is NOT hallucinated — it is the exact
+// registry provided by the user from the live /official page.
 
-export const OFFICIAL_PUBLISHERS: ReadonlyArray<string> = [
-  'anthropics',
-  'vercel-labs',
-  'openai',
-  'supabase',
-  'microsoft',
-  'google-gemini',
-  'apify',
-] as const;
+export interface OfficialVendor {
+  readonly creator: string;
+  readonly repo: string;
+  readonly skillsCount: number;
+}
+
+export const OFFICIAL_REGISTRY: ReadonlyMap<string, OfficialVendor> = new Map([
+  ['anthropics',          { creator: 'anthropics',          repo: 'skills',                     skillsCount: 256 }],
+  ['apify',               { creator: 'apify',               repo: 'agent-skills',               skillsCount: 22 }],
+  ['apollographql',       { creator: 'apollographql',       repo: 'skills',                     skillsCount: 13 }],
+  ['auth0',               { creator: 'auth0',               repo: 'agent-skills',               skillsCount: 12 }],
+  ['automattic',          { creator: 'automattic',          repo: 'agent-skills',               skillsCount: 25 }],
+  ['axiomhq',             { creator: 'axiomhq',             repo: 'skills',                     skillsCount: 7 }],
+  ['base',                { creator: 'base',                repo: 'skills',                     skillsCount: 19 }],
+  ['better-auth',         { creator: 'better-auth',         repo: 'skills',                     skillsCount: 11 }],
+  ['bitwarden',           { creator: 'bitwarden',           repo: 'ai-plugins',                 skillsCount: 32 }],
+  ['box',                 { creator: 'box',                 repo: 'box-for-ai',                 skillsCount: 1 }],
+  ['brave',               { creator: 'brave',               repo: 'brave-search-skills',        skillsCount: 10 }],
+  ['browser-use',         { creator: 'browser-use',         repo: 'browser-use',                skillsCount: 4 }],
+  ['browserbase',         { creator: 'browserbase',         repo: 'skills',                     skillsCount: 13 }],
+  ['callstackincubator',  { creator: 'callstackincubator',  repo: 'agent-skills',               skillsCount: 11 }],
+  ['clerk',               { creator: 'clerk',               repo: 'skills',                     skillsCount: 17 }],
+  ['clickhouse',          { creator: 'clickhouse',          repo: 'agent-skills',               skillsCount: 8 }],
+  ['cloudflare',          { creator: 'cloudflare',          repo: 'skills',                     skillsCount: 50 }],
+  ['coderabbitai',        { creator: 'coderabbitai',        repo: 'skills',                     skillsCount: 4 }],
+  ['coinbase',            { creator: 'coinbase',            repo: 'agentic-wallet-skills',      skillsCount: 10 }],
+  ['dagster-io',          { creator: 'dagster-io',          repo: 'erk',                        skillsCount: 53 }],
+  ['datadog-labs',        { creator: 'datadog-labs',        repo: 'agent-skills',               skillsCount: 16 }],
+  ['dbt-labs',            { creator: 'dbt-labs',            repo: 'dbt-agent-skills',           skillsCount: 13 }],
+  ['denoland',            { creator: 'denoland',            repo: 'skills',                     skillsCount: 6 }],
+  ['elevenlabs',          { creator: 'elevenlabs',          repo: 'skills',                     skillsCount: 9 }],
+  ['encoredev',           { creator: 'encoredev',           repo: 'skills',                     skillsCount: 18 }],
+  ['expo',                { creator: 'expo',                repo: 'skills',                     skillsCount: 17 }],
+  ['facebook',            { creator: 'facebook',            repo: 'react',                      skillsCount: 11 }],
+  ['figma',               { creator: 'figma',               repo: 'mcp-server-guide',           skillsCount: 10 }],
+  ['firebase',            { creator: 'firebase',            repo: 'agent-skills',               skillsCount: 35 }],
+  ['firecrawl',           { creator: 'firecrawl',           repo: 'cli',                        skillsCount: 68 }],
+  ['flutter',             { creator: 'flutter',             repo: 'skills',                     skillsCount: 49 }],
+  ['getsentry',           { creator: 'getsentry',           repo: 'skills',                     skillsCount: 207 }],
+  ['github',              { creator: 'github',              repo: 'awesome-copilot',            skillsCount: 277 }],
+  ['google-gemini',       { creator: 'google-gemini',       repo: 'gemini-skills',              skillsCount: 19 }],
+  ['google-labs-code',    { creator: 'google-labs-code',    repo: 'stitch-skills',              skillsCount: 16 }],
+  ['hashicorp',           { creator: 'hashicorp',           repo: 'agent-skills',               skillsCount: 47 }],
+  ['huggingface',         { creator: 'huggingface',         repo: 'skills',                     skillsCount: 27 }],
+  ['kotlin',              { creator: 'kotlin',              repo: 'kotlin-agent-skills',        skillsCount: 4 }],
+  ['langchain-ai',        { creator: 'langchain-ai',        repo: 'langchain-skills',           skillsCount: 78 }],
+  ['langfuse',            { creator: 'langfuse',            repo: 'skills',                     skillsCount: 9 }],
+  ['launchdarkly',        { creator: 'launchdarkly',        repo: 'agent-skills',               skillsCount: 11 }],
+  ['livekit',             { creator: 'livekit',             repo: 'agent-skills',               skillsCount: 1 }],
+  ['makenotion',          { creator: 'makenotion',          repo: 'claude-code-notion-plugin',  skillsCount: 23 }],
+  ['mapbox',              { creator: 'mapbox',              repo: 'mapbox-agent-skills',        skillsCount: 22 }],
+  ['mastra-ai',           { creator: 'mastra-ai',           repo: 'skills',                     skillsCount: 13 }],
+  ['mcp-use',             { creator: 'mcp-use',             repo: 'mcp-use',                    skillsCount: 5 }],
+  ['medusajs',            { creator: 'medusajs',            repo: 'medusa-agent-skills',        skillsCount: 16 }],
+  ['microsoft',           { creator: 'microsoft',           repo: 'github-copilot-for-azure',   skillsCount: 630 }],
+  ['n8n-io',              { creator: 'n8n-io',              repo: 'n8n',                        skillsCount: 9 }],
+  ['neondatabase',        { creator: 'neondatabase',        repo: 'agent-skills',               skillsCount: 21 }],
+  ['nuxt',                { creator: 'nuxt',                repo: 'ui',                         skillsCount: 3 }],
+  ['openai',              { creator: 'openai',              repo: 'skills',                     skillsCount: 82 }],
+  ['openshift',           { creator: 'openshift',           repo: 'hypershift',                 skillsCount: 7 }],
+  ['planetscale',         { creator: 'planetscale',         repo: 'database-skills',            skillsCount: 8 }],
+  ['posthog',             { creator: 'posthog',             repo: 'posthog',                    skillsCount: 28 }],
+  ['prisma',              { creator: 'prisma',              repo: 'skills',                     skillsCount: 36 }],
+  ['pulumi',              { creator: 'pulumi',              repo: 'agent-skills',               skillsCount: 28 }],
+  ['pytorch',             { creator: 'pytorch',             repo: 'pytorch',                    skillsCount: 12 }],
+  ['redis',               { creator: 'redis',               repo: 'agent-skills',               skillsCount: 3 }],
+  ['remotion-dev',        { creator: 'remotion-dev',        repo: 'skills',                     skillsCount: 9 }],
+  ['resend',              { creator: 'resend',              repo: 'resend-skills',              skillsCount: 10 }],
+  ['rivet-dev',           { creator: 'rivet-dev',           repo: 'skills',                     skillsCount: 11 }],
+  ['runwayml',            { creator: 'runwayml',            repo: 'skills',                     skillsCount: 1 }],
+  ['sanity-io',           { creator: 'sanity-io',           repo: 'agent-toolkit',              skillsCount: 18 }],
+  ['semgrep',             { creator: 'semgrep',             repo: 'skills',                     skillsCount: 6 }],
+  ['streamlit',           { creator: 'streamlit',           repo: 'agent-skills',               skillsCount: 15 }],
+  ['stripe',              { creator: 'stripe',              repo: 'ai',                         skillsCount: 7 }],
+  ['supabase',            { creator: 'supabase',            repo: 'agent-skills',               skillsCount: 8 }],
+  ['sveltejs',            { creator: 'sveltejs',            repo: 'mcp',                        skillsCount: 4 }],
+  ['tavily-ai',           { creator: 'tavily-ai',           repo: 'skills',                     skillsCount: 19 }],
+  ['tinybirdco',          { creator: 'tinybirdco',          repo: 'tinybird-agent-skills',      skillsCount: 4 }],
+  ['tldraw',              { creator: 'tldraw',              repo: 'tldraw',                     skillsCount: 13 }],
+  ['triggerdotdev',       { creator: 'triggerdotdev',       repo: 'skills',                     skillsCount: 12 }],
+  ['upstash',             { creator: 'upstash',             repo: 'context7',                   skillsCount: 22 }],
+  ['vercel',              { creator: 'vercel',              repo: 'ai',                         skillsCount: 163 }],
+  ['vercel-labs',         { creator: 'vercel-labs',         repo: 'agent-skills',               skillsCount: 195 }],
+  ['webflow',             { creator: 'webflow',             repo: 'webflow-skills',             skillsCount: 22 }],
+  ['wix',                 { creator: 'wix',                 repo: 'skills',                     skillsCount: 19 }],
+  ['wordpress',           { creator: 'wordpress',           repo: 'agent-skills',               skillsCount: 13 }],
+]);
+
+/** Flat array of official publisher names (for fast membership checks). */
+export const OFFICIAL_PUBLISHERS: ReadonlyArray<string> = [...OFFICIAL_REGISTRY.keys()];
+
+/** Total skills across all official vendors. */
+export const OFFICIAL_TOTAL_SKILLS: number = [...OFFICIAL_REGISTRY.values()]
+  .reduce((sum, v) => sum + v.skillsCount, 0);
 
 export function isOfficialPublisher(publisher: string): boolean {
-  return OFFICIAL_PUBLISHERS.includes(publisher);
+  return OFFICIAL_REGISTRY.has(publisher);
+}
+
+/** Get the canonical repo for an official publisher. */
+export function getOfficialRepo(publisher: string): string | undefined {
+  return OFFICIAL_REGISTRY.get(publisher)?.repo;
 }
 
 // ── BAML-style enum definitions (mirrors baml-extractor.ts) ────────

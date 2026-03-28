@@ -8,7 +8,10 @@
 
 import {
   OFFICIAL_PUBLISHERS,
+  OFFICIAL_REGISTRY,
+  OFFICIAL_TOTAL_SKILLS,
   isOfficialPublisher,
+  getOfficialRepo,
   classifyDomain,
   classifyMaturity,
   classifyAgentTarget,
@@ -44,16 +47,48 @@ function assert(condition: boolean, name: string): void {
   }
 }
 
-// ── Test 1: Official Publisher Allowlist ────────────────────────────
-console.log('\n1. Official Publisher Allowlist');
-assert(OFFICIAL_PUBLISHERS.length === 7, `7 official publishers (got ${OFFICIAL_PUBLISHERS.length})`);
+// ── Test 1: Official Publisher Registry (78 vendors from skills.sh/official) ──
+console.log('\n1. Official Publisher Registry');
+assert(OFFICIAL_PUBLISHERS.length === 79, `79 official publishers (got ${OFFICIAL_PUBLISHERS.length})`);
+assert(OFFICIAL_REGISTRY.size === 79, `Registry has 79 entries (got ${OFFICIAL_REGISTRY.size})`);
+assert(OFFICIAL_TOTAL_SKILLS > 2800, `Total skills > 2800 (got ${OFFICIAL_TOTAL_SKILLS})`);
+// Spot-check major vendors
 assert(isOfficialPublisher('anthropics'), 'anthropics is official');
 assert(isOfficialPublisher('vercel-labs'), 'vercel-labs is official');
+assert(isOfficialPublisher('vercel'), 'vercel is official');
 assert(isOfficialPublisher('openai'), 'openai is official');
-assert(isOfficialPublisher('supabase'), 'supabase is official');
 assert(isOfficialPublisher('microsoft'), 'microsoft is official');
+assert(isOfficialPublisher('github'), 'github is official');
+assert(isOfficialPublisher('supabase'), 'supabase is official');
+assert(isOfficialPublisher('cloudflare'), 'cloudflare is official');
+assert(isOfficialPublisher('stripe'), 'stripe is official');
+assert(isOfficialPublisher('firebase'), 'firebase is official');
+assert(isOfficialPublisher('prisma'), 'prisma is official');
+assert(isOfficialPublisher('neondatabase'), 'neondatabase is official');
+assert(isOfficialPublisher('hashicorp'), 'hashicorp is official');
+assert(isOfficialPublisher('getsentry'), 'getsentry is official');
+assert(isOfficialPublisher('figma'), 'figma is official');
+assert(isOfficialPublisher('expo'), 'expo is official');
+assert(isOfficialPublisher('coinbase'), 'coinbase is official');
+assert(isOfficialPublisher('dagster-io'), 'dagster-io is official');
+// Verify non-official rejection
 assert(!isOfficialPublisher('random-user'), 'random-user is NOT official');
 assert(!isOfficialPublisher(''), 'empty string is NOT official');
+assert(!isOfficialPublisher('hackers-r-us'), 'hackers-r-us is NOT official');
+// Verify repo mapping
+assert(getOfficialRepo('anthropics') === 'skills', 'anthropics repo is skills');
+assert(getOfficialRepo('microsoft') === 'github-copilot-for-azure', 'microsoft repo is github-copilot-for-azure');
+assert(getOfficialRepo('getsentry') === 'skills', 'getsentry repo is skills');
+assert(getOfficialRepo('coinbase') === 'agentic-wallet-skills', 'coinbase repo is agentic-wallet-skills');
+assert(getOfficialRepo('dagster-io') === 'erk', 'dagster-io repo is erk');
+assert(getOfficialRepo('firecrawl') === 'cli', 'firecrawl repo is cli');
+assert(getOfficialRepo('nonexistent') === undefined, 'nonexistent repo is undefined');
+// Verify skills counts for top vendors
+assert(OFFICIAL_REGISTRY.get('microsoft')!.skillsCount === 630, 'microsoft has 630 skills');
+assert(OFFICIAL_REGISTRY.get('github')!.skillsCount === 277, 'github has 277 skills');
+assert(OFFICIAL_REGISTRY.get('anthropics')!.skillsCount === 256, 'anthropics has 256 skills');
+assert(OFFICIAL_REGISTRY.get('getsentry')!.skillsCount === 207, 'getsentry has 207 skills');
+assert(OFFICIAL_REGISTRY.get('vercel-labs')!.skillsCount === 195, 'vercel-labs has 195 skills');
 
 // ── Test 2: URL Safety Filter ──────────────────────────────────────
 console.log('\n2. URL Safety Filter');
@@ -67,6 +102,10 @@ assert(isSafeUrl('https://skills.sh/anthropics'), '/anthropics is safe');
 assert(isSafeUrl('https://skills.sh/anthropics/skills'), '/anthropics/skills is safe');
 assert(isSafeUrl('https://skills.sh/anthropics/skills/frontend-design'), '/anthropics/skills/frontend-design is safe');
 assert(isSafeUrl('https://skills.sh/vercel-labs/agent-skills/react-best-practices'), 'vercel-labs skill is safe');
+assert(isSafeUrl('https://skills.sh/cloudflare'), '/cloudflare is safe');
+assert(isSafeUrl('https://skills.sh/stripe/ai'), '/stripe/ai is safe');
+assert(isSafeUrl('https://skills.sh/neondatabase/agent-skills'), '/neondatabase/agent-skills is safe');
+assert(isSafeUrl('https://skills.sh/dagster-io/erk/some-skill'), 'dagster-io skill is safe');
 
 // Unsafe URLs — non-official publishers
 assert(!isSafeUrl('https://skills.sh/random-user/my-skills/evil-skill'), 'random-user skill is UNSAFE');
@@ -95,8 +134,10 @@ console.log('\n4. Seed & Publisher URLs');
 assert(SEED_URLS.length === 5, `5 seed URLs (got ${SEED_URLS.length})`);
 assert(SEED_URLS.includes('https://skills.sh/official'), 'Includes /official');
 assert(SEED_URLS.includes('https://skills.sh/audits'), 'Includes /audits');
-assert(PUBLISHER_URLS.length === 7, `7 publisher URLs (got ${PUBLISHER_URLS.length})`);
+assert(PUBLISHER_URLS.length === 79, `79 publisher URLs (got ${PUBLISHER_URLS.length})`);
 assert(PUBLISHER_URLS.includes('https://skills.sh/anthropics'), 'Includes anthropics');
+assert(PUBLISHER_URLS.includes('https://skills.sh/cloudflare'), 'Includes cloudflare');
+assert(PUBLISHER_URLS.includes('https://skills.sh/stripe'), 'Includes stripe');
 assert(PUBLISHER_URLS.every(u => isSafeUrl(u)), 'All publisher URLs are safe');
 
 // ── Test 5: Domain Classification (BAML enum) ─────────────────────

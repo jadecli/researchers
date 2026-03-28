@@ -33,7 +33,10 @@ import { scoreQuality } from "../extractors/quality-scorer.js";
 import type { CrawlResult, CrawlStats } from "../models/types.js";
 import {
   OFFICIAL_PUBLISHERS,
+  OFFICIAL_REGISTRY,
+  OFFICIAL_TOTAL_SKILLS,
   isOfficialPublisher,
+  getOfficialRepo,
   extractSkillTyped,
   parseInstallCount,
   printTypedSkills,
@@ -75,9 +78,14 @@ const SEED_URLS: ReadonlyArray<string> = [
   'https://skills.sh/docs',
 ];
 
-// Official publisher listing pages
+// Official publisher listing pages (78 verified vendors from skills.sh/official)
 const PUBLISHER_URLS: ReadonlyArray<string> = OFFICIAL_PUBLISHERS.map(
   (p) => `https://skills.sh/${p}`,
+);
+
+// Official publisher + repo pages (direct path to each vendor's repo)
+const PUBLISHER_REPO_URLS: ReadonlyArray<string> = [...OFFICIAL_REGISTRY.entries()].map(
+  ([publisher, vendor]) => `https://skills.sh/${publisher}/${vendor.repo}`,
 );
 
 // ── URL Safety ─────────────────────────────────────────────────────
@@ -342,7 +350,7 @@ export class SkillsCrawler {
   async crawl(): Promise<CrawlResult[]> {
     this.stats.startTime = performance.now();
     console.log(`[skills] Starting official vendor skills crawl`);
-    console.log(`[skills] Official publishers: ${OFFICIAL_PUBLISHERS.join(', ')}`);
+    console.log(`[skills] Official publishers: ${OFFICIAL_PUBLISHERS.length} vendors, ${OFFICIAL_TOTAL_SKILLS} total skills`);
     console.log(`[skills] Max pages: ${this.options.maxPages}`);
 
     // Phase 1: Seed URLs
