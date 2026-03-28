@@ -10,5 +10,13 @@
     "./registry": "./surfaces/registry.ts",
     "./agents": "./agents/crawl-agent.ts",
     "./schemas": "./schemas/output-schemas.ts"
+  },
+  "dependencies": {
+    "bloom-filters": "^3.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0",
+    "@types/node": "^22.0.0"
   }
 }

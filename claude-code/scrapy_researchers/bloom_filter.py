@@ -1,4 +1,7 @@
-"""Pure-Python Bloom filter for memory-efficient duplicate detection.
+"""Bloom filter for Scrapy URL deduplication using rbloom.
+
+rbloom is a Rust-backed bloom filter — the fastest Python implementation
+(2x faster than pybloomfiltermmap3, 10x faster than pybloom-live).
 
 No Redis dependency — designed for single-node iterative crawling where
 the full SHA256 fingerprint set grows too large across rounds.
@@ -20,191 +23,29 @@ Spider-specific profiles:
 from __future__ import annotations
 
 import hashlib
-import math
-import struct
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
+from rbloom import Bloom
 from scrapy.dupefilters import BaseDupeFilter
 from scrapy.http import Request
 from scrapy.utils.request import fingerprint
 
 
-class BloomFilter:
-    """Space-efficient probabilistic set membership test.
+def _stable_hash(item: object) -> int:
+    """Deterministic hash function for rbloom serialization.
 
-    Args:
-        expected_items: Expected number of unique items to insert.
-        fp_rate: Desired false positive rate (default 0.001 = 0.1%).
+    rbloom requires a custom hash function (not Python's built-in hash())
+    to support save_bytes/load_bytes persistence across processes.
     """
-
-    def __init__(self, expected_items: int = 100_000, fp_rate: float = 0.001) -> None:
-        self.expected_items = expected_items
-        self.fp_rate = fp_rate
-        self.num_bits = self._optimal_num_bits(expected_items, fp_rate)
-        self.num_hashes = self._optimal_num_hashes(self.num_bits, expected_items)
-        self._bit_array = bytearray(math.ceil(self.num_bits / 8))
-        self._count = 0
-
-    @staticmethod
-    def _optimal_num_bits(n: int, p: float) -> int:
-        """Calculate optimal bit array size: m = -(n * ln(p)) / (ln(2)^2)."""
-        if n <= 0:
-            return 64
-        m = -(n * math.log(p)) / (math.log(2) ** 2)
-        return max(int(math.ceil(m)), 64)
-
-    @staticmethod
-    def _optimal_num_hashes(m: int, n: int) -> int:
-        """Calculate optimal hash count: k = (m/n) * ln(2)."""
-        if n <= 0:
-            return 1
-        k = (m / n) * math.log(2)
-        return max(int(math.ceil(k)), 1)
-
-    def _get_bit_positions(self, item: str) -> list[int]:
-        """Generate k bit positions using double hashing (Kirsch-Mitzenmacker).
-
-        Two independent hashes h1, h2 from SHA256 produce k positions:
-            position_i = (h1 + i * h2) % num_bits
-        """
-        digest = hashlib.sha256(item.encode("utf-8")).digest()
-        h1 = struct.unpack_from("<Q", digest, 0)[0]
-        h2 = struct.unpack_from("<Q", digest, 8)[0]
-
-        return [(h1 + i * h2) % self.num_bits for i in range(self.num_hashes)]
-
-    def add(self, item: str) -> bool:
-        """Add item to the filter. Returns True if item was already possibly present."""
-        positions = self._get_bit_positions(item)
-        was_present = all(self._get_bit(pos) for pos in positions)
-
-        for pos in positions:
-            self._set_bit(pos)
-
-        if not was_present:
-            self._count += 1
-
-        return was_present
-
-    def __contains__(self, item: str) -> bool:
-        """Check if item is possibly in the filter (no false negatives)."""
-        positions = self._get_bit_positions(item)
-        return all(self._get_bit(pos) for pos in positions)
-
-    def _set_bit(self, position: int) -> None:
-        byte_idx = position >> 3  # position // 8
-        bit_idx = position & 7    # position % 8
-        self._bit_array[byte_idx] |= (1 << bit_idx)
-
-    def _get_bit(self, position: int) -> bool:
-        byte_idx = position >> 3
-        bit_idx = position & 7
-        return bool(self._bit_array[byte_idx] & (1 << bit_idx))
-
-    @property
-    def count(self) -> int:
-        """Approximate number of unique items added."""
-        return self._count
-
-    @property
-    def memory_bytes(self) -> int:
-        """Current memory usage of the bit array in bytes."""
-        return len(self._bit_array)
-
-    @property
-    def estimated_fp_rate(self) -> float:
-        """Estimated current false positive rate given items inserted."""
-        if self._count == 0:
-            return 0.0
-        # (1 - e^(-kn/m))^k
-        exponent = -self.num_hashes * self._count / self.num_bits
-        return (1 - math.exp(exponent)) ** self.num_hashes
-
-    def save(self, path: str | Path) -> None:
-        """Persist bloom filter to disk for cross-run deduplication."""
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "wb") as f:
-            # Header: expected_items(4), fp_rate(8), num_bits(4), num_hashes(4), count(4)
-            f.write(struct.pack("<I", self.expected_items))
-            f.write(struct.pack("<d", self.fp_rate))
-            f.write(struct.pack("<I", self.num_bits))
-            f.write(struct.pack("<I", self.num_hashes))
-            f.write(struct.pack("<I", self._count))
-            f.write(self._bit_array)
-
-    @classmethod
-    def load(cls, path: str | Path) -> BloomFilter:
-        """Load a persisted bloom filter from disk."""
-        path = Path(path)
-        with open(path, "rb") as f:
-            expected_items = struct.unpack("<I", f.read(4))[0]
-            fp_rate = struct.unpack("<d", f.read(8))[0]
-            num_bits = struct.unpack("<I", f.read(4))[0]
-            num_hashes = struct.unpack("<I", f.read(4))[0]
-            count = struct.unpack("<I", f.read(4))[0]
-            bit_array = bytearray(f.read())
-
-        bf = cls.__new__(cls)
-        bf.expected_items = expected_items
-        bf.fp_rate = fp_rate
-        bf.num_bits = num_bits
-        bf.num_hashes = num_hashes
-        bf._bit_array = bit_array
-        bf._count = count
-        return bf
-
-    def merge(self, other: BloomFilter) -> None:
-        """Merge another bloom filter into this one (OR of bit arrays).
-
-        Both filters must have the same size and hash count.
-        """
-        if self.num_bits != other.num_bits or self.num_hashes != other.num_hashes:
-            raise ValueError(
-                f"Cannot merge filters with different parameters: "
-                f"({self.num_bits}, {self.num_hashes}) vs ({other.num_bits}, {other.num_hashes})"
-            )
-        for i in range(len(self._bit_array)):
-            self._bit_array[i] |= other._bit_array[i]
-        self._count = min(self._count + other._count, self.expected_items)
-
-    def serialize(self) -> bytes:
-        """Serialize filter to bytes for Neon Postgres persistence."""
-        return bytes(self._bit_array)
-
-    @classmethod
-    def deserialize(
-        cls,
-        data: bytes,
-        expected_items: int,
-        fp_rate: float,
-        item_count: int,
-    ) -> BloomFilter:
-        """Restore filter from serialized bytes."""
-        bf = cls.__new__(cls)
-        bf.expected_items = expected_items
-        bf.fp_rate = fp_rate
-        bf.num_bits = len(data) * 8
-        bf.num_hashes = cls._optimal_num_hashes(bf.num_bits, expected_items)
-        bf._bit_array = bytearray(data)
-        bf._count = item_count
-        return bf
-
-    def __repr__(self) -> str:
-        return (
-            f"BloomFilter(items={self._count}, bits={self.num_bits}, "
-            f"hashes={self.num_hashes}, memory={self.memory_bytes}B, "
-            f"est_fp={self.estimated_fp_rate:.6f})"
-        )
+    return int.from_bytes(hashlib.sha256(str(item).encode()).digest()[:8], "big")
 
 
 # ── Scrapy DupeFilter integration ─────────────────────────────────
 
 
 class BloomDupeFilter(BaseDupeFilter):
-    """Scrapy DupeFilter backed by a bloom filter with optional Neon Postgres persistence.
+    """Scrapy DupeFilter backed by rbloom with optional Neon Postgres persistence.
 
     Settings:
         BLOOM_EXPECTED_ITEMS (int): Expected number of unique URLs. Default: 10000.
@@ -222,7 +63,7 @@ class BloomDupeFilter(BaseDupeFilter):
         crawler_id: str = "scrapy-docs",
         domain: str = "docs.anthropic.com",
     ) -> None:
-        self.bloom = BloomFilter(expected_items, false_positive_rate)
+        self.bloom = Bloom(expected_items, false_positive_rate, _stable_hash)
         self.db_url = db_url
         self.crawler_id = crawler_id
         self.domain = domain
@@ -265,15 +106,12 @@ class BloomDupeFilter(BaseDupeFilter):
             conn = psycopg2.connect(self.db_url)
             cur = conn.cursor()
             cur.execute(
-                "SELECT filter_bytes, expected_items, false_positive_rate, items_inserted "
-                "FROM bloom_filter_state WHERE crawler_id = %s AND domain = %s",
+                "SELECT filter_bytes FROM bloom_filter_state WHERE crawler_id = %s AND domain = %s",
                 (self.crawler_id, self.domain),
             )
             row = cur.fetchone()
             if row:
-                self.bloom = BloomFilter.deserialize(
-                    bytes(row[0]), row[1], row[2], row[3]
-                )
+                self.bloom = Bloom.load_bytes(bytes(row[0]), _stable_hash)
             cur.close()
             conn.close()
         except Exception:
@@ -284,6 +122,7 @@ class BloomDupeFilter(BaseDupeFilter):
         try:
             import psycopg2  # type: ignore[import-untyped]
 
+            filter_data = self.bloom.save_bytes()
             conn = psycopg2.connect(self.db_url)
             cur = conn.cursor()
             cur.execute(
@@ -300,10 +139,10 @@ class BloomDupeFilter(BaseDupeFilter):
                     self.domain,
                     self._expected_items,
                     self._false_positive_rate,
-                    self.bloom.num_hashes,
-                    self.bloom.num_bits,
-                    self.bloom.count,
-                    self.bloom.serialize(),
+                    0,  # rbloom manages hash count internally
+                    0,  # rbloom manages bit size internally
+                    0,
+                    filter_data,
                 ),
             )
             conn.commit()
@@ -367,10 +206,9 @@ class BloomProfile:
 
 BLOOM_PROFILES: dict[str, BloomProfile] = {
     # platform.claude.com: strict dedup, conservative politeness to avoid blocks.
-    # ~500 doc pages, iterative re-crawls need cross-run persistence.
     "platform_spider": BloomProfile(
         expected_urls=5_000,
-        fp_rate=0.0005,     # stricter — missing a changed page is costly
+        fp_rate=0.0005,
         persist_dir="scrapy_researchers/.bloomstate",
         download_delay=3.0,
         autothrottle_start=3.0,
@@ -388,8 +226,7 @@ BLOOM_PROFILES: dict[str, BloomProfile] = {
         autothrottle_max=60.0,
     ),
 
-    # anthropic.com sitemap: high volume. Sitemap can expose 1000+ URLs.
-    # Slightly relaxed FP rate acceptable — pages are public/stable.
+    # anthropic.com sitemap: high volume.
     "anthropic_spider": BloomProfile(
         expected_urls=50_000,
         fp_rate=0.002,
@@ -411,7 +248,6 @@ BLOOM_PROFILES: dict[str, BloomProfile] = {
     ),
 
     # llms-full.txt: single file download, no link following.
-    # Request-level bloom unnecessary (DEPTH_LIMIT=0). Item dedup only.
     "llms_full_spider": BloomProfile(
         expected_urls=1_000,
         fp_rate=0.001,
@@ -423,15 +259,14 @@ BLOOM_PROFILES: dict[str, BloomProfile] = {
         autothrottle_max=60.0,
     ),
 
-    # GitHub API spider: no HTTP-level dedup needed (uses gh CLI, not Scrapy downloader).
-    # Item-level bloom catches duplicate file content across re-crawls.
+    # GitHub API spider: no HTTP-level dedup needed.
     "github_spider": BloomProfile(
         expected_urls=10_000,
         fp_rate=0.001,
         persist_dir="scrapy_researchers/.bloomstate",
         request_dedup=False,
         item_dedup=True,
-        download_delay=0.0,   # API has its own rate limiter
+        download_delay=0.0,
         autothrottle_start=0.0,
         autothrottle_max=0.0,
     ),
