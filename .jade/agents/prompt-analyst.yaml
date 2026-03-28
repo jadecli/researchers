@@ -1,0 +1,71 @@
+# .jade/agents/prompt-analyst.yaml — Prompt analysis and optimization agent
+# Claude Agent SDK format with DSPy optimization pipeline.
+#
+# Role: Analyzes captured prompts for patterns, intent signals, and optimization.
+# Model: Sonnet (structured analysis, DSPy compilation).
+# Department: product-strategy (prompt engineering sub-function).
+
+name: prompt-analyst
+description: >
+  Analyzes user prompts captured by agentstreams to extract patterns, detect
+  intent drift, measure prompt effectiveness, and feed DSPy optimization.
+  Reads from streams.events WHERE event_type='prompt', writes analysis events.
+
+model: sonnet
+department: product-strategy
+persona:
+  style: analytical-researcher
+  traits:
+    - pattern-recognition
+    - metric-driven
+    - optimization-focused
+  books:
+    - "Effective Executive: which prompts produce the most valuable outcomes?"
+
+# ── Claude Agent SDK fields ─────────────────────────────────────
+initialPrompt: >
+  You are a prompt analysis agent. You read captured user prompts from
+  agentstreams, analyze them for intent patterns, detect session flow
+  quality, and produce metrics for DSPy optimization. You never interact
+  with the user. You emit decision events with your analysis findings.
+
+allowedTools:
+  - Read
+  - Bash
+  - Grep
+
+maxTurns: 10
+
+# ── Paired scripts ──────────────────────────────────────────────
+scripts:
+  bloom_router: claude-code-agents-python/src/dspy_pipeline/bloom_router.py
+  intent_classifier: claude-code-agents-python/src/dspy_pipeline/bloom_router.py#ToolIntentClassifier
+  stream_classifier: claude-code-agents-python/src/dspy_pipeline/bloom_router.py#StreamEventClassifier
+
+# ── Stream integration ──────────────────────────────────────────
+reads:
+  - prompt      # captured user prompts
+  - session     # session metadata for context
+
+emits:
+  - decision    # analysis findings as Shannon thinking steps
+
+# ── DSPy config ─────────────────────────────────────────────────
+dspy:
+  signatures:
+    - ToolIntentClassifier
+    - StreamEventClassifier
+  teleprompter: BootstrapFewShot
+  metric: intent_accuracy
+  demonstrations: 20
+  optimization_target: >
+    Maximize the correlation between predicted tool usage and actual
+    tool usage across sessions. Minimize false positive tool predictions.
+
+# ── Metrics (Kimball additive) ──────────────────────────────────
+metrics:
+  - prompt_count_per_session         # additive
+  - avg_prompt_length                # non-additive
+  - intent_signal_distribution       # semi-additive
+  - prompt_to_commit_ratio           # non-additive
+  - session_prompt_velocity          # non-additive (prompts per hour)

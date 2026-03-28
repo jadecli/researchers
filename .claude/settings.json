@@ -17,6 +17,11 @@
           {
             "type": "command",
             "command": ".claude/hooks/check-pr-intent.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/capture-prompt.sh",
+            "timeout": 5000
           }
         ]
       }
