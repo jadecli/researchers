@@ -6,8 +6,14 @@
     "build": "cd agenttasks && npm run build",
     "build:check": "cd agenttasks && npx tsc --noEmit",
     "lint": "cd agenttasks && npm run lint",
+    "lint:python": "ruff check . && ruff format --check .",
+    "lint:ts": "cd claude-multi-agent-sdk && npx tsc --noEmit && cd ../claude-multi-agent-dispatch && npx tsc --noEmit",
     "test:sdk": "cd claude-multi-agent-sdk && npx vitest run",
     "test:dispatch": "cd claude-multi-agent-dispatch && npx vitest run",
+    "test:crawls": "cd agentcrawls-ts && npx vitest run",
+    "test:all": "npm run test:sdk && npm run test:dispatch && npm run test:crawls",
+    "precommit": "pre-commit run --all-files",
+    "crawl:changelogs": "cd agentcrawls-ts && npx tsx src/index.ts",
     "prebuild:verify": "cd agenttasks && npm install --silent && npm run build"
   },
   "engines": {
