@@ -17,17 +17,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/validate-commit.sh",
-            "timeout": 10000
-          },
-          {
-            "type": "command",
-            "command": ".claude/hooks/quality-gate.sh",
+            "command": ".claude/hooks/context-pre-commit.sh",
             "timeout": 15000
           },
           {
             "type": "command",
-            "command": ".claude/hooks/pre-pr-gate.sh",
+            "command": ".claude/hooks/context-pre-pr.sh",
             "timeout": 60000
           }
         ]
@@ -37,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-pr-gate.sh",
+            "command": ".claude/hooks/context-pre-pr.sh",
             "timeout": 60000
           }
         ]

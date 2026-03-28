@@ -1,42 +1,15 @@
 #!/usr/bin/env bash
 # .claude/hooks/session-setup.sh — SessionStart hook
-# Validates environment, emits session stream event, and auto-installs deps.
-# Captures surface, device, agent metadata for agentstreams pipeline.
-# NEVER blocks (always exits 0). Prints warnings only.
+# Context-aware session initialization with gradual degradation.
+# Loads: environment, agentcommits state, recent commits, active PRs, available scripts.
+# NEVER blocks (always exits 0). Injects context for the session.
 
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 STATUS=()
 
-# ── Agentstreams: Generate session ID and capture metadata ────
-BUFFER_DIR="$ROOT/.claude/memory/streams"
-mkdir -p "$BUFFER_DIR"
-SESSION_ID="${CLAUDE_SESSION_ID:-$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "session-$(date +%s)")}"
-echo "$SESSION_ID" > "$BUFFER_DIR/.session_id"
-
-# Surface detection (cli, web, ios, vscode, jetbrains, desktop)
-SURFACE="${CLAUDE_SURFACE:-cli}"
-if [ -n "${VSCODE_PID:-}" ] || [ -n "${TERM_PROGRAM:-}" ] && [ "${TERM_PROGRAM:-}" = "vscode" ]; then
-  SURFACE="vscode"
-elif [ -n "${JETBRAINS_IDE:-}" ]; then
-  SURFACE="jetbrains"
-fi
-
-# Device/OS metadata
-OS_NAME=$(uname -s 2>/dev/null || echo "unknown")
-OS_VERSION=$(uname -r 2>/dev/null || echo "unknown")
-ARCH=$(uname -m 2>/dev/null || echo "unknown")
-HOSTNAME_SHORT=$(hostname -s 2>/dev/null || echo "unknown")
-SHELL_NAME=$(basename "${SHELL:-unknown}" 2>/dev/null || echo "unknown")
-GIT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
-GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-GIT_USER=$(git config user.name 2>/dev/null || echo "unknown")
-GIT_EMAIL=$(git config user.email 2>/dev/null || echo "unknown")
-CWD=$(pwd)
-TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-# ── Node.js version check ──────────────────────────────────────
+# ── 1. Environment Validation ────────────────────────────────
 if command -v node >/dev/null 2>&1; then
   NODE_VER=$(node -v | sed 's/v//' | cut -d. -f1)
   if [ "$NODE_VER" -ge 20 ] 2>/dev/null; then
@@ -48,24 +21,21 @@ else
   STATUS+=("WARNING: node not found. Install Node.js >= 20")
 fi
 
-# ── agenttasks dependencies (auto-install in cloud) ────────────
+# ── 2. Auto-install deps in cloud ────────────────────────────
 if [ -d "$ROOT/agenttasks/node_modules" ]; then
   STATUS+=("agenttasks/node_modules: present")
 else
-  # Auto-install in cloud environments (non-interactive)
   if [ -f "$ROOT/agenttasks/package.json" ] && command -v npm >/dev/null 2>&1; then
     STATUS+=("agenttasks/node_modules missing — auto-installing...")
     if (cd "$ROOT/agenttasks" && npm install --no-audit --no-fund --loglevel=error 2>&1 | tail -3); then
       STATUS+=("agenttasks/node_modules: installed")
     else
-      STATUS+=("WARNING: agenttasks npm install failed. Run manually: cd agenttasks && npm install")
+      STATUS+=("WARNING: agenttasks npm install failed")
     fi
-  else
-    STATUS+=("WARNING: agenttasks/node_modules missing. Run: cd agenttasks && npm install")
   fi
 fi
 
-# ── Git pre-commit hook (install if missing) ───────────────────
+# ── 3. Git pre-commit hook auto-install ──────────────────────
 PRECOMMIT_HOOK="$ROOT/.git/hooks/pre-commit"
 PRECOMMIT_SOURCE="$ROOT/.claude/hooks/git-pre-commit.sh"
 if [ -f "$PRECOMMIT_SOURCE" ] && [ ! -f "$PRECOMMIT_HOOK" ]; then
@@ -74,44 +44,103 @@ if [ -f "$PRECOMMIT_SOURCE" ] && [ ! -f "$PRECOMMIT_HOOK" ]; then
   STATUS+=("git pre-commit hook: installed")
 elif [ -f "$PRECOMMIT_HOOK" ]; then
   STATUS+=("git pre-commit hook: present")
-else
-  STATUS+=("git pre-commit hook: source not found (expected $PRECOMMIT_SOURCE)")
 fi
 
-# ── Quick TypeScript check (only if deps available) ────────────
+# ── 4. TypeScript quick check ────────────────────────────────
 if [ -d "$ROOT/agenttasks/node_modules" ] && command -v npx >/dev/null 2>&1; then
   if (cd "$ROOT/agenttasks" && npx tsc --noEmit 2>/dev/null); then
     STATUS+=("agenttasks TypeScript: clean")
   else
-    STATUS+=("WARNING: agenttasks has TypeScript errors. Run: cd agenttasks && npx tsc --noEmit")
+    STATUS+=("WARNING: agenttasks has TypeScript errors")
   fi
 fi
 
-# ── Pre-commit + tools setup ──────────────────────────────────
-if command -v make >/dev/null 2>&1 && [ -f "$ROOT/Makefile" ]; then
-  if make -C "$ROOT" -s setup 2>/dev/null; then
-    STATUS+=("pre-commit: installed via make setup")
-  else
-    STATUS+=("WARNING: make setup failed")
-  fi
-elif command -v uv >/dev/null 2>&1; then
-  command -v pre-commit >/dev/null || uv tool install pre-commit 2>/dev/null
-  command -v radon >/dev/null || uv tool install radon 2>/dev/null
-  if command -v pre-commit >/dev/null 2>&1; then
-    pre-commit install --install-hooks 2>/dev/null && STATUS+=("pre-commit: installed") || true
-  fi
-else
-  STATUS+=("WARNING: neither make nor uv found. Pre-commit not installed.")
+# ── 5. Python environment ────────────────────────────────────
+if command -v python3 >/dev/null 2>&1; then
+  STATUS+=("$(python3 --version 2>&1)")
+  python3 -c "import scrapy" 2>/dev/null && STATUS+=("scrapy: available") || STATUS+=("WARNING: scrapy not installed")
 fi
 
-# ── Print status ───────────────────────────────────────────────
+# ── Print environment status ─────────────────────────────────
 echo "--- Session Environment ---"
 for line in "${STATUS[@]}"; do
   echo "  $line"
 done
 echo "---"
 
-# ── Next session context (scope carryover) ─────────────────────
+# ══════════════════════════════════════════════════════════════
+# CONTEXT INJECTION — Agentcommits, recent history, scripts
+# ══════════════════════════════════════════════════════════════
+
+echo ""
+echo "--- Agentcommits Context ---"
+
+# ── 6. Recent commit history with agent trailer detection ────
+echo "  Recent commits (last 10):"
+RECENT_COMMITS=$(git log --oneline -10 2>/dev/null || echo "  (no git history)")
+echo "$RECENT_COMMITS" | while IFS= read -r line; do
+  echo "    $line"
+done
+
+# Count agent-authored commits in last 50
+AGENT_COMMITS=$(git log -50 --format='%b' 2>/dev/null | grep -c 'Agent-Id:' || echo 0)
+TOTAL_RECENT=50
+echo "  Agent-authored: $AGENT_COMMITS of last $TOTAL_RECENT commits"
+
+# ── 7. Current branch and merge base ────────────────────────
+BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+echo "  Branch: $BRANCH"
+
+# Commits ahead of main
+AHEAD=$(git rev-list --count main..HEAD 2>/dev/null || echo "?")
+echo "  Commits ahead of main: $AHEAD"
+
+# ── 8. Uncommitted changes summary ──────────────────────────
+MODIFIED=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
+STAGED=$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
+UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+echo "  Working tree: $MODIFIED modified, $STAGED staged, $UNTRACKED untracked"
+
+# ── 9. Open TODOs from todos.jsonl ───────────────────────────
+if [ -f "$ROOT/todos.jsonl" ]; then
+  OPEN_TODOS=$(grep -c '"status":"open"' "$ROOT/todos.jsonl" 2>/dev/null || echo 0)
+  HIGH_TODOS=$(grep '"status":"open"' "$ROOT/todos.jsonl" 2>/dev/null | grep -c '"priority":"high"' || echo 0)
+  echo "  Open TODOs: $OPEN_TODOS ($HIGH_TODOS high priority)"
+fi
+
+echo "---"
+
+# ── 10. Available headless scripts ───────────────────────────
+echo ""
+echo "--- Available Headless Scripts ---"
+if [ -d "$ROOT/.claude/scripts" ]; then
+  for script in "$ROOT/.claude/scripts"/*.sh "$ROOT/.claude/scripts"/*.py "$ROOT/.claude/scripts"/*.ts; do
+    [ -f "$script" ] || continue
+    NAME=$(basename "$script")
+    # Extract description from first comment line
+    DESC=$(head -3 "$script" | grep -E '^#\s' | head -1 | sed 's/^#\s*//' || echo "")
+    echo "  $NAME — $DESC"
+  done
+fi
+echo "---"
+
+# ── 11. Decision tree: what hooks enforce ────────────────────
+echo ""
+echo "--- Enforcement Layer ---"
+echo "  PreToolUse hooks active:"
+echo "    validate-commit.sh — Conventional commit format (blocks non-compliant)"
+echo "    quality-gate.sh    — Return types, architecture, secrets (blocks errors)"
+echo "    pre-pr-gate.sh     — Full build, uncommitted changes, security (blocks PR creation)"
+echo "  Git pre-commit hook:"
+echo "    TypeScript compilation, secrets, cross-boundary imports"
+echo "  Escalation chain:"
+echo "    1. Fix at source (hook blocks + provides guidance)"
+echo "    2. Slack alert (CI failures via ci-quality-gate.yml)"
+echo "    3. Linear ticket (triage-ci-failure.py creates issues)"
+echo "    4. TODO in todos.jsonl (local fallback, never silent)"
+echo "---"
+
+# ── 12. Prior session context ────────────────────────────────
 NEXT_SESSION="$ROOT/.claude/memory/next-session.md"
 if [ -f "$NEXT_SESSION" ]; then
   echo ""
@@ -121,93 +150,6 @@ if [ -f "$NEXT_SESSION" ]; then
   echo ""
   echo "NOTE: The above items are OUT OF SCOPE for the current PR."
   echo "Start a new branch/PR to address them."
-fi
-
-# ── Agentstreams: Emit session start event ────────────────────
-NODE_VER_FULL=$(node -v 2>/dev/null || echo "unknown")
-CLAUDE_VER="${CLAUDE_CODE_VERSION:-unknown}"
-BUFFER_FILE="$BUFFER_DIR/buffer.jsonl"
-MANIFEST_FILE="$BUFFER_DIR/${GIT_BRANCH//\//_}.json"
-
-# Build session start stream event
-if command -v jq >/dev/null 2>&1; then
-  SESSION_EVENT=$(jq -n \
-    --arg event_type "session" \
-    --arg session_id "$SESSION_ID" \
-    --argjson sequence_number 0 \
-    --arg git_branch "$GIT_BRANCH" \
-    --arg git_sha "$GIT_SHA" \
-    --arg agent_id "orchestrator" \
-    --arg user_id "$GIT_USER" \
-    --arg surface "$SURFACE" \
-    --arg created_at "$TIMESTAMP" \
-    --arg phase "start" \
-    --arg os_name "$OS_NAME" \
-    --arg os_version "$OS_VERSION" \
-    --arg arch "$ARCH" \
-    --arg hostname "$HOSTNAME_SHORT" \
-    --arg shell_name "$SHELL_NAME" \
-    --arg node_version "$NODE_VER_FULL" \
-    --arg claude_code_version "$CLAUDE_VER" \
-    --arg model "${CLAUDE_MODEL:-opus}" \
-    --arg cwd "$CWD" \
-    --arg git_email "$GIT_EMAIL" \
-    '{
-      event_type: $event_type,
-      session_id: $session_id,
-      sequence_number: $sequence_number,
-      git_branch: $git_branch,
-      git_sha: $git_sha,
-      agent_id: $agent_id,
-      user_id: $user_id,
-      surface: $surface,
-      token_count: 150,
-      created_at: $created_at,
-      payload: {
-        phase: $phase,
-        surface: $surface,
-        os: $os_name,
-        os_version: $os_version,
-        arch: $arch,
-        hostname: $hostname,
-        shell: $shell_name,
-        node_version: $node_version,
-        claude_code_version: $claude_code_version,
-        model: $model,
-        branch: $git_branch,
-        cwd: $cwd,
-        git_user: $user_id,
-        git_email: $git_email
-      }
-    }')
-
-  echo "$SESSION_EVENT" >> "$BUFFER_FILE"
-
-  # Initialize or update branch manifest
-  if [ -f "$MANIFEST_FILE" ]; then
-    jq \
-      --arg session_id "$SESSION_ID" \
-      --arg ts "$TIMESTAMP" \
-      '.session_id = $session_id | .event_counts.session = ((.event_counts.session // 0) + 1) | .last_flushed_at = $ts' \
-      "$MANIFEST_FILE" > "$MANIFEST_FILE.tmp" && mv "$MANIFEST_FILE.tmp" "$MANIFEST_FILE"
-  else
-    jq -n \
-      --arg branch "$GIT_BRANCH" \
-      --arg session_id "$SESSION_ID" \
-      --arg ts "$TIMESTAMP" \
-      '{
-        branch: $branch,
-        session_id: $session_id,
-        last_event_id: 0,
-        event_counts: { prompt: 0, commit: 0, session: 1 },
-        last_flushed_at: $ts,
-        neon_synced: false
-      }' > "$MANIFEST_FILE"
-  fi
-
-  echo "  agentstreams: session event captured ($SESSION_ID)"
-else
-  echo "  WARNING: jq not found, agentstreams session capture skipped"
 fi
 
 # Never block session start
