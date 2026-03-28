@@ -9,7 +9,7 @@ import { CrawlOutputSchema, EMPTY_QUALITY } from '../models/extraction-result.js
 import type { SelectorPatch } from '../models/improvement.js';
 import { ResearchPipeline } from '../pipeline/pipeline.js';
 import type { Result } from '../types.js';
-import { Ok, toIteration, toQualityValue, toSpiderName, toUrl } from '../types.js';
+import { Err, Ok, toIteration, toQualityValue, toSpiderName, toUrl, unwrapOr } from '../types.js';
 import { injectContext } from './context-injector.js';
 import { HeadlessRunner } from './headless-runner.js';
 import { ImprovementChain } from './improvement-chain.js';
@@ -107,10 +107,11 @@ export class CrawlCampaign {
       const prompt = this.buildCrawlPrompt(target, contextFragment);
       const runResult = this.runner.run(prompt);
 
-      const result = this.parseCrawlOutput(
+      const parseResult = this.parseCrawlOutput(
         target,
         runResult.ok ? runResult.value : '',
       );
+      const result = parseResult.ok ? parseResult.value : this.fallbackResult(target, '');
 
       const { pageType } = this.pipeline.classify(
         result.url as string,
@@ -216,7 +217,7 @@ export class CrawlCampaign {
   }
 
   private buildCrawlPrompt(target: CrawlTarget, context: string): string {
-    const domains = effectiveDomains(target).join(', ');
+    const domains = unwrapOr(effectiveDomains(target), []).join(', ');
     return [
       `Crawl the website at ${target.url} using the '${target.spiderName}' spider.`,
       `Extract up to ${target.maxPages} pages.`,
@@ -231,38 +232,54 @@ export class CrawlCampaign {
   private parseCrawlOutput(
     target: CrawlTarget,
     rawOutput: string,
-  ): ExtractionResult {
+  ): Result<ExtractionResult, Error> {
+    const jsonResult = this.tryParseJson(rawOutput);
+    if (!jsonResult.ok) {
+      return Ok(this.fallbackResult(target, rawOutput));
+    }
+    const zodResult = CrawlOutputSchema.safeParse(jsonResult.value);
+    if (!zodResult.success) {
+      return Ok(this.fallbackResult(target, rawOutput));
+    }
+    const data = zodResult.data;
+    return Ok({
+      url: toUrl(data.url ?? (target.url as string)),
+      spiderName: toSpiderName(target.spiderName as string),
+      pageType: 'doc',
+      title: data.title,
+      content: data.content ?? '',
+      structuredData: data.structured_data ?? {},
+      links: data.links ?? [],
+      selectorsUsed: data.selectors_used ?? [],
+      quality: EMPTY_QUALITY,
+      rawHtmlSnippet: data.raw_html_snippet,
+      extractedAt: new Date(),
+      metadata: {},
+    });
+  }
+
+  private fallbackResult(target: CrawlTarget, rawOutput: string): ExtractionResult {
+    return {
+      url: toUrl(target.url as string),
+      spiderName: toSpiderName(target.spiderName as string),
+      pageType: 'doc',
+      title: undefined,
+      content: rawOutput,
+      structuredData: {},
+      links: [],
+      selectorsUsed: [],
+      quality: EMPTY_QUALITY,
+      rawHtmlSnippet: undefined,
+      extractedAt: new Date(),
+      metadata: {},
+    };
+  }
+
+  private tryParseJson(raw: string): Result<unknown, Error> {
     try {
-      const data = CrawlOutputSchema.parse(JSON.parse(rawOutput));
-      return {
-        url: toUrl(data.url ?? (target.url as string)),
-        spiderName: toSpiderName(target.spiderName as string),
-        pageType: 'doc',
-        title: data.title,
-        content: data.content ?? '',
-        structuredData: data.structured_data ?? {},
-        links: data.links ?? [],
-        selectorsUsed: data.selectors_used ?? [],
-        quality: EMPTY_QUALITY,
-        rawHtmlSnippet: data.raw_html_snippet,
-        extractedAt: new Date(),
-        metadata: {},
-      };
-    } catch {
-      return {
-        url: toUrl(target.url as string),
-        spiderName: toSpiderName(target.spiderName as string),
-        pageType: 'doc',
-        title: undefined,
-        content: rawOutput,
-        structuredData: {},
-        links: [],
-        selectorsUsed: [],
-        quality: EMPTY_QUALITY,
-        rawHtmlSnippet: undefined,
-        extractedAt: new Date(),
-        metadata: {},
-      };
+      return Ok(JSON.parse(raw));
+    } catch (e) {
+      return Err(e instanceof Error ? e : new Error(String(e)));
     }
   }
 

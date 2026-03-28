@@ -3,12 +3,15 @@ import { z } from 'zod';
 import type {
   CampaignId,
   QualityValue,
+  Result,
   SpiderName,
   USD,
   Url,
 } from '../types.js';
 import {
   assertNever,
+  Err,
+  Ok,
   toCampaignId,
   toQualityValue,
   toSpiderName,
@@ -95,14 +98,12 @@ export function createCrawlTarget(input: CrawlTargetInput): CrawlTarget {
   };
 }
 
-export function effectiveDomains(target: CrawlTarget): readonly string[] {
-  if (target.allowedDomains.length > 0) return target.allowedDomains;
-  try {
-    const parsed = new URL(target.url);
-    return [parsed.hostname];
-  } catch {
-    return [];
-  }
+export function effectiveDomains(target: CrawlTarget): Result<readonly string[], Error> {
+  if (target.allowedDomains.length > 0) return Ok(target.allowedDomains);
+  const result = URL.canParse(target.url)
+    ? Ok([new URL(target.url).hostname] as const)
+    : Err(new Error(`Invalid URL: ${target.url}`));
+  return result;
 }
 
 // ── Crawl Plan ──────────────────────────────────────────────────

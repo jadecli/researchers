@@ -58,7 +58,9 @@ describe('CrawlTarget', () => {
 
   it('extracts domain from URL when no allowed domains', () => {
     const target = createCrawlTarget({ url: 'https://docs.example.com/path' });
-    expect(effectiveDomains(target)).toEqual(['docs.example.com']);
+    const result = effectiveDomains(target);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toEqual(['docs.example.com']);
   });
 
   it('uses allowed domains when provided', () => {
@@ -66,7 +68,9 @@ describe('CrawlTarget', () => {
       url: 'https://example.com',
       allowedDomains: ['a.com', 'b.com'],
     });
-    expect(effectiveDomains(target)).toEqual(['a.com', 'b.com']);
+    const result = effectiveDomains(target);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toEqual(['a.com', 'b.com']);
   });
 });
 

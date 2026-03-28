@@ -82,20 +82,19 @@ export class HeadlessRunner {
 
   run(prompt: string): Result<string, RunnerError> {
     const cmd = this.buildCommand(prompt, false);
+    const execResult = this.execSafe(cmd);
+    if (!execResult.ok) return execResult;
+    return Ok(this.parseJsonOutput(execResult.value));
+  }
+
+  private execSafe(cmd: readonly string[]): Result<string, RunnerError> {
     try {
       const result = execSync(cmd.join(' '), {
         timeout: this.config.timeoutMs,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
       });
-      try {
-        const parsed = JSON.parse(result) as Record<string, unknown>;
-        const text =
-          typeof parsed['result'] === 'string' ? parsed['result'] : result;
-        return Ok(text);
-      } catch {
-        return Ok(result.trim());
-      }
+      return Ok(result);
     } catch (e: unknown) {
       if (e instanceof Error && 'killed' in e) {
         return Err(new RunnerTimeoutError(this.config.timeoutMs));
@@ -109,6 +108,22 @@ export class HeadlessRunner {
       }
       const msg = e instanceof Error ? e.message : String(e);
       return Err(new RunnerError(`HeadlessRunner failed: ${msg}`));
+    }
+  }
+
+  private parseJsonOutput(raw: string): string {
+    const parsed = this.tryParseJson(raw);
+    if (parsed !== undefined && typeof parsed['result'] === 'string') {
+      return parsed['result'];
+    }
+    return raw.trim();
+  }
+
+  private tryParseJson(raw: string): Record<string, unknown> | undefined {
+    try {
+      return JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      return undefined;
     }
   }
 
@@ -130,10 +145,9 @@ export class HeadlessRunner {
           for (const line of lines) {
             const trimmed = line.trim();
             if (!trimmed) continue;
-            try {
-              events.push(JSON.parse(trimmed) as StreamEvent);
-            } catch {
-              // Non-JSON line, skip
+            const parsed = this.tryParseJson(trimmed);
+            if (parsed !== undefined) {
+              events.push(parsed as StreamEvent);
             }
           }
         });
@@ -179,16 +193,8 @@ export class HeadlessRunner {
     });
   }
 
-  checkAvailable(): boolean {
-    try {
-      execSync(`${this.config.claudeBinary} --version`, {
-        timeout: 10_000,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-      return true;
-    } catch {
-      return false;
-    }
+  checkAvailable(): Result<boolean, RunnerError> {
+    const result = this.execSafe([this.config.claudeBinary, '--version']);
+    return result.ok ? Ok(true) : Err(new RunnerNotFoundError(this.config.claudeBinary));
   }
 }

@@ -6,7 +6,7 @@
 // 3. Discriminated unions model every state transition
 
 // ── Branded Types (Nominal Typing) ──────────────────────────────
-type Brand<K, T> = K & { readonly __brand: T };
+export type Brand<K, T> = K & { readonly __brand: T };
 
 export type CampaignId = Brand<string, 'CampaignId'>;
 export type SpiderName = Brand<string, 'SpiderName'>;

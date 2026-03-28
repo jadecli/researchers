@@ -41,19 +41,13 @@ function createModule<I, O>(
   buildPrompt: (input: I) => string,
 ): ModuleForward<I, O> {
   return async (input: I): Promise<Result<O, ModuleError>> => {
-    try {
-      const prompt = buildPrompt(input);
-      // In production, this calls Anthropic API with chain-of-thought
-      // For now, return a structured placeholder that can be overridden
-      void prompt;
-      return Err(
-        new ModuleError(name, 'LM not configured — call pipeline.configure() first'),
-      );
-    } catch (e) {
-      return Err(
-        new ModuleError(name, e instanceof Error ? e.message : String(e)),
-      );
-    }
+    const prompt = buildPrompt(input);
+    // In production, this calls Anthropic API with chain-of-thought
+    // For now, return a structured placeholder that can be overridden
+    void prompt;
+    return Err(
+      new ModuleError(name, 'LM not configured — call pipeline.configure() first'),
+    );
   };
 }
 
