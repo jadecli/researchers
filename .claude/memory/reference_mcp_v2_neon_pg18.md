@@ -1,18 +1,13 @@
 ---
-name: mcp-v2-neon-pg18-architecture
-description: MCP TypeScript SDK v2 (pre-alpha) + Neon PG18 architecture for building plugin data platform. Key patterns for claude-channel-dispatch-routing.
+name: neon-pg18-architecture
+description: Neon PG18 architecture for building plugin data platform. MCP v2 SDK details moved to reference_mcp_architecture.md.
 type: reference
 ---
 
-## MCP TypeScript SDK v2 Key Changes
-- Package split: @modelcontextprotocol/server, /client, /node, /express, /hono
-- `registerTool()` replaces `server.tool()` with structured options object
-- `outputSchema` enables typed structured output with Zod v4
-- `ctx` object replaces `extra` parameter (provides logging, sampling, elicitation)
-- Experimental Tasks API for long-running operations (TaskStore, states: working/completed/failed)
-- Dynamic tool management: handle.disable()/enable()
-- Streamable HTTP is primary transport (SSE deprecated)
-- Requires Node.js >= 20, Zod v3.25+ or v4, ESM-only
+## MCP v2 SDK
+See `reference_mcp_architecture.md` for complete MCP architecture including v1→v2 upgrade path.
+Current monorepo: all servers on `@modelcontextprotocol/sdk@1.28.0` (v1 stable).
+v2 stable target: Q1 2026. Key change for us: Streamable HTTP transport enables cross-device MCP.
 
 ## Neon PG18 Key Features
 - UUIDv7 native: `DEFAULT uuidv7()`, `uuid_extract_timestamp(id)` for time-ordered PKs

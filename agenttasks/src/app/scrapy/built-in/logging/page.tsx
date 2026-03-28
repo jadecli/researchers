@@ -63,7 +63,7 @@ LOG_DATEFORMAT = "%Y-%m-%d %H:%M:%S"`}
         </Collapsible>
 
         <Callout type="tip">
-          In AgentTasks, we set <Code>LOG_LEVEL = "INFO"</Code> during development
+          In AgentTasks, we set <Code>LOG_LEVEL = &quot;INFO&quot;</Code> during development
           and <Code>WARNING</Code> in CI to keep GitHub Actions logs clean.
         </Callout>
       </div>

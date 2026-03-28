@@ -57,7 +57,7 @@ export default function DebuggingSpidersPage() {
 
         <Collapsible title="Verbose Logging">
           <p className="text-sm text-[#b0aea5] mb-3">
-            Temporarily set <Code>LOG_LEVEL = "DEBUG"</Code> to see every request,
+            Temporarily set <Code>LOG_LEVEL = &quot;DEBUG&quot;</Code> to see every request,
             response, and middleware action during a crawl.
           </p>
           <CodeBlock language="bash" title="debug run">

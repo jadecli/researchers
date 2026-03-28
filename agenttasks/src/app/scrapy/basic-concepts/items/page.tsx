@@ -60,7 +60,7 @@ class DocPageItem(scrapy.Item):
         </CodeBlock>
 
         <Callout type="note">
-          Items behave like dicts — use <Code>item["field"]</Code> to get and set
+          Items behave like dicts — use <Code>item[&quot;field&quot;]</Code> to get and set
           values. Accessing an undeclared field raises <Code>KeyError</Code>, which
           catches typos early.
         </Callout>

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Collapsible } from "@/components/Collapsible";
 import { Callout } from "@/components/Callout";
 import { CodeBlock } from "@/components/CodeBlock";
-import { Code } from "@/components/Code";
 
 const PRACTICES = [
   {
