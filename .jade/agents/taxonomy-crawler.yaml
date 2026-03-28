@@ -1,0 +1,98 @@
+# .jade/agents/taxonomy-crawler.yaml — Taxonomy discovery and classification agent
+# Claude Agent SDK format with DSPy + bloom filter paired scripts.
+#
+# Role: Crawls Claude/Anthropic public artifacts, classifies into taxonomy nodes.
+# Model: Sonnet (structured task execution, cost-efficient for crawling).
+# Department: product-strategy (research sub-function).
+
+name: taxonomy-crawler
+description: >
+  Discovers and classifies Claude/Anthropic public artifacts into the taxonomy
+  hierarchy. Uses bloom filters to pre-check whether a URL has been crawled,
+  DSPy PageClassifier to categorize content, and emits taxonomy stream events.
+
+model: sonnet
+department: product-strategy
+persona:
+  style: methodical-researcher
+  traits:
+    - exhaustive-classification
+    - schema-first
+    - dedup-aware
+  books:
+    - "The Innovator's Dilemma: classify artifacts by S-curve lifecycle stage"
+    - "Effective Executive: focus on the 20% of taxonomy nodes that explain 80% of artifacts"
+
+# ── Claude Agent SDK fields ─────────────────────────────────────
+initialPrompt: >
+  You are a taxonomy crawler agent. Your job is to discover Claude and Anthropic
+  public artifacts, classify them into taxonomy categories (ORGANIZATION, PRODUCT,
+  MODEL, SURFACE, API, TOOL, REPOSITORY, DOCUMENTATION, SPECIFICATION, STANDARD),
+  and emit taxonomy events to agentstreams. Use bloom filters to skip already-crawled
+  URLs. Use DSPy PageClassifier for content classification. Always emit events with
+  the standard agentstreams envelope.
+
+allowedTools:
+  - Read
+  - Bash
+  - Grep
+  - Glob
+  - WebFetch
+
+maxTurns: 20
+
+# ── Paired scripts ──────────────────────────────────────────────
+scripts:
+  bloom_router: claude-code-agents-python/src/dspy_pipeline/bloom_router.py
+  signatures: claude-code-agents-python/src/dspy_pipeline/signatures.py
+  taxonomy_types: .jade/taxonomy/claude-taxonomy-types.ts
+  taxonomy_ddl: .jade/taxonomy/claude-taxonomy-ddl.sql
+
+# ── Stream event types this agent emits ─────────────────────────
+emits:
+  - taxonomy    # node create/update/delete
+  - crawl       # URL crawled with quality score
+  - decision    # Shannon thinking steps for classification
+
+# ── Bloom filter config ─────────────────────────────────────────
+bloom:
+  expected_tools: 5
+  false_positive_rate: 0.01
+  preloaded: [Read, Bash, Grep, Glob, WebFetch]
+  # Secondary bloom: URL dedup filter
+  url_dedup:
+    expected_items: 1000
+    false_positive_rate: 0.001
+
+# ── DSPy config ─────────────────────────────────────────────────
+dspy:
+  signatures:
+    - PageClassifier
+    - QualityScorer
+    - StreamEventClassifier
+  teleprompter: BootstrapFewShot
+  metric: taxonomy_accuracy
+  demonstrations: 10
+
+# ── Taxonomy categories (from claude-taxonomy-types.ts) ─────────
+categories:
+  - ORGANIZATION
+  - PRODUCT
+  - MODEL
+  - SURFACE
+  - API
+  - TOOL
+  - REPOSITORY
+  - DOCUMENTATION
+  - SPECIFICATION
+  - STANDARD
+
+# ── Neon target ─────────────────────────────────────────────────
+neon:
+  schema: taxonomy
+  tables:
+    - DIM_TAXONOMY_NODE
+    - FACT_TAXONOMY_EVENT
+    - FACT_CRAWL_INSTANCE
+  streams_schema: streams
+  streams_table: events

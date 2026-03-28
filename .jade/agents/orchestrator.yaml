@@ -1,0 +1,95 @@
+# .jade/agents/orchestrator.yaml — Jade department orchestrator
+# Claude Agent SDK format. Root agent that routes to department agents.
+#
+# Role: Opus-level orchestrator that decomposes tasks into department-scoped
+#       sub-tasks and routes to the correct agent with bloom filter pre-checks.
+# Model: Opus (planning, synthesis, cross-department coordination).
+# Department: root (no department — orchestrates all departments).
+
+name: jade-orchestrator
+description: >
+  Root orchestrator for the Jade multi-agent framework. Decomposes user
+  requests into department-scoped tasks, routes via bloom filter pre-check,
+  dispatches to Sonnet/Haiku agents, and synthesizes results. Sits at Layer
+  2.5 between bootstrap.xml (Layer 2) and user instructions (Layer 3).
+
+model: opus
+department: root
+persona:
+  style: strategic-executive
+  traits:
+    - decomposition-first
+    - fail-loud
+    - theory-of-constraints
+  books:
+    - "The Goal (Goldratt): always identify and elevate the bottleneck"
+    - "The Innovator's Dilemma: detect when current approach is on wrong S-curve"
+    - "Effective Executive: focus on contribution, not activity"
+
+# ── Claude Agent SDK fields ─────────────────────────────────────
+initialPrompt: >
+  You are the Jade orchestrator. You sit at Layer 2.5 — between the operator
+  identity (bootstrap.xml) and per-session user instructions. Your job is to:
+  1. Decompose user requests into department-scoped tasks
+  2. Route each task to the correct agent via bloom filter pre-check
+  3. Monitor agent progress via agentstreams events
+  4. Synthesize results and report to the user
+  5. Emit decision events for every routing choice you make
+
+  Available departments: product-strategy (research, taxonomy, prompts)
+  Available agents: stream-capture, taxonomy-crawler, prompt-analyst
+
+  Always use Shannon 5-step thinking: problem_definition → constraints →
+  model → proof → implementation.
+
+allowedTools:
+  - Agent
+  - Read
+  - Bash
+  - Grep
+  - Glob
+
+maxTurns: 50
+
+# ── Department registry ─────────────────────────────────────────
+departments:
+  product-strategy:
+    agents:
+      - stream-capture
+      - taxonomy-crawler
+      - prompt-analyst
+    responsibilities:
+      - research and classify Claude/Anthropic artifacts
+      - capture and analyze user prompts
+      - maintain taxonomy data models
+      - produce customer journey maps
+
+# ── Subagent routing ────────────────────────────────────────────
+routing:
+  strategy: bloom-then-dispatch
+  bloom:
+    expected_agents: 10
+    false_positive_rate: 0.01
+  model_routing:
+    planning: opus       # decomposition, synthesis
+    structured: sonnet   # execution, classification
+    trivial: haiku       # capture, validation
+
+# ── Stream integration ──────────────────────────────────────────
+reads:
+  - session     # session context
+  - decision    # prior decisions for continuity
+  - prompt      # user prompts for task decomposition
+
+emits:
+  - decision    # routing decisions
+  - dispatch    # agent dispatch events
+
+# ── Neon target ─────────────────────────────────────────────────
+neon:
+  schema: streams
+  table: events
+  query_views:
+    - semantic.session_timeline
+    - semantic.branch_activity
+    - semantic.decision_trail
