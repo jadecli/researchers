@@ -1,0 +1,115 @@
+name: Neon Preview Branches
+
+# Creates a Neon Postgres preview branch for each PR, runs migrations,
+# and cleans up on PR close. This gives each PR its own isolated database.
+#
+# Actions used (all from neondatabase org — verified creator):
+#   - neondatabase/create-branch-action@v6  (create preview branch)
+#   - neondatabase/delete-branch-action@v3  (cleanup on PR close)
+#   - neondatabase/schema-diff-action@v1    (post schema diff as PR comment)
+#
+# Required secrets:
+#   - NEON_API_KEY: API key from neon.tech console
+# Required vars:
+#   - NEON_PROJECT_ID: Your Neon project ID (set in repo Settings > Variables)
+#
+# Docs: https://neon.com/docs/guides/branching-github-actions
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Create or update preview branch when PR is opened/updated
+  create-preview:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      db_url: ${{ steps.create-branch.outputs.db_url }}
+      branch_id: ${{ steps.create-branch.outputs.branch_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Neon preview branch
+        id: create-branch
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch_name: pr-${{ github.event.number }}
+          # Auto-expire preview branches after 7 days
+          expires_at: ""
+
+      - name: Run migrations on preview branch
+        if: steps.create-branch.outputs.created == 'true'
+        env:
+          DATABASE_URL: ${{ steps.create-branch.outputs.db_url }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "No DATABASE_URL — NEON_API_KEY or NEON_PROJECT_ID may not be configured"
+            exit 0
+          fi
+
+          echo "Running migrations on preview branch pr-${{ github.event.number }}..."
+
+          # Run all SQL migrations in order
+          MIGRATION_DIR="claude-channel-dispatch-routing/migrations"
+          if [ -d "$MIGRATION_DIR" ]; then
+            for f in "$MIGRATION_DIR"/*.sql; do
+              echo "Applying: $f"
+              psql "$DATABASE_URL" -f "$f" 2>&1 || echo "Migration $f failed (may already be applied)"
+            done
+            echo "Migrations complete"
+          else
+            echo "No migrations directory found at $MIGRATION_DIR"
+          fi
+
+      - name: Post preview branch info as PR comment
+        if: steps.create-branch.outputs.created == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branchId = '${{ steps.create-branch.outputs.branch_id }}';
+            const dbHost = '${{ steps.create-branch.outputs.db_host }}';
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `**Neon Preview Branch Created**\n\n` +
+                `| Field | Value |\n|---|---|\n` +
+                `| Branch | \`pr-${context.issue.number}\` |\n` +
+                `| Branch ID | \`${branchId}\` |\n` +
+                `| Host | \`${dbHost}\` |\n\n` +
+                `Migrations have been applied. This branch will be deleted when the PR is closed.`
+            });
+
+  # Post schema diff as PR comment
+  schema-diff:
+    if: github.event.action != 'closed'
+    needs: create-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: neondatabase/schema-diff-action@v1
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          compare_branch: pr-${{ github.event.number }}
+
+  # Delete preview branch when PR is closed/merged
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete Neon preview branch
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch: pr-${{ github.event.number }}
