@@ -1,0 +1,45 @@
+# Monorepo-aware auto-labeling for PRs
+# Used by actions/labeler@v6 in .github/workflows/gitflow.yml
+# Docs: https://github.com/actions/labeler
+
+agenttasks:
+  - changed-files:
+    - any-glob-to-any-file: 'agenttasks/**'
+
+sdk:
+  - changed-files:
+    - any-glob-to-any-file: 'claude-multi-agent-sdk/**'
+
+dispatch:
+  - changed-files:
+    - any-glob-to-any-file: 'claude-multi-agent-dispatch/**'
+
+crawls:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'agentcrawls-ts/**'
+      - 'claude-code/**'
+
+routing:
+  - changed-files:
+    - any-glob-to-any-file: 'claude-channel-dispatch-routing/**'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/**'
+      - '.pre-commit-config.yaml'
+      - 'Makefile'
+
+docs:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+      - '.claude/research/**'
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/package.json'
+      - '**/package-lock.json'
+      - 'requirements*.txt'

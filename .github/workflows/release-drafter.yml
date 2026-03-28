@@ -1,0 +1,27 @@
+name: Release Drafter
+
+# Automatically drafts release notes as PRs are merged.
+# Uses release-drafter/release-drafter@v6 (v6.1.0, verified creator).
+# Config: .github/release-drafter.yml
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  update-release-draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: release-drafter/release-drafter@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

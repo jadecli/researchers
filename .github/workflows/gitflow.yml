@@ -1,0 +1,104 @@
+name: Gitflow
+
+# Standard gitflow workflows for the monorepo:
+# 1. Auto-label PRs by changed path (monorepo-aware)
+# 2. Enforce conventional commit format on PR titles
+# 3. Auto-merge Dependabot minor/patch updates
+#
+# Actions used:
+#   - actions/labeler@v6           (GitHub official, verified)
+#   - amannn/action-semantic-pull-request@v6  (v6.1.1, used by Vercel/Electron)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Auto-label PRs based on which sub-repo files changed
+  label:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@v6
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Enforce conventional commit format on PR titles
+  # This ensures squash-merge commits follow the convention
+  conventional-commits:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Types from CLAUDE.md commit convention
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            test
+            ci
+          # Require scope to be empty or a known sub-repo
+          scopes: |
+            agenttasks
+            sdk
+            dispatch
+            crawls
+            routing
+            claude-code
+            ci
+            deps
+          requireScope: false
+          # Allow WIP prefixes
+          wip: true
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            doesn't match the expected pattern. The subject should start with
+            a lowercase letter. Example: "feat: add new feature"
+
+  # Auto-merge Dependabot PRs for minor/patch updates
+  dependabot-auto-merge:
+    if: >
+      github.event_name == 'pull_request' &&
+      github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-approve minor/patch updates
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for minor/patch
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
