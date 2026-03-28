@@ -1,4 +1,12 @@
-- [MCP v2 + Neon PG18](reference_mcp_v2_neon_pg18.md) — SDK v2 registerTool, Neon branching, plugin architecture
-- [v2.1.85 optimizations](feedback_v2185_optimizations.md) — Top 5 ROI actions for latency and codegen
-- [Latency + codegen practices](feedback_latency_codegen.md) — Ranked levers from awesome-claude-code research
-- [Channel dispatch plan](project_channel_dispatch.md) — Plan for channel-dispatch-routing repo
+- [User Profile](user_profile.md) — Solo dev, performance-obsessed, wants deterministic CI/CD
+- [Feedback: Autonomy](feedback_autonomous.md) — Be opinionated and autonomous, don't ask for permission on clear fixes
+- [Feedback: MCP Auth](feedback_mcp_auth_patterns.md) — Debug MCP plugin failures via .mcp.json env var checks, not OAuth
+- [Project: CI/CD Roadmap](project_cicd_roadmap.md) — Linear, Slack, Neon, gitflow workflows in .github/workflows — DONE
+- [Project: PR Management](project_pr_management.md) — 8+ PRs open daily, branch protection configured on main
+- [Project: Channel Dispatch](project_channel_dispatch.md) — Channel-dispatch-routing repo plan with Neon PG18 persistence
+- [Reference: GitHub Actions](reference_github_actions.md) — Verified action versions and integration patterns for 9 workflows
+- [Reference: Claude Plugins](reference_claude_plugins.md) — Full enum of 100+ plugins from claude.com/plugins with install counts
+- [Reference: MCP Architecture](reference_mcp_architecture.md) — 5 local servers, 5 plugins, auth, scopes, cross-device, v1→v2 upgrade
+- [Reference: Neon PG18](reference_mcp_v2_neon_pg18.md) — Neon PG18 features, plugin architecture, monorepo pattern
+- [Feedback: v2.1.85 optimizations](feedback_v2185_optimizations.md) — Top 5 ROI actions for latency and codegen
+- [Feedback: Latency + codegen](feedback_latency_codegen.md) — Ranked levers from awesome-claude-code research

@@ -26,7 +26,7 @@ permissions:
 jobs:
   # Create or update preview branch when PR is opened/updated
   create-preview:
-    if: github.event.action != 'closed'
+    if: github.event.action != 'closed' && vars.NEON_PROJECT_ID != ''
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:

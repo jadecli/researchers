@@ -11,20 +11,30 @@ permissions:
 jobs:
   security-review:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    # Only run when the secret is configured
+    if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Claude Code security scan
-        uses: anthropics/claude-code-security-review@v1
+        uses: anthropics/claude-code-action@v1
         with:
-          claude-api-key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          comment-pr: true
-          upload-results: true
-          exclude-directories: 'node_modules,vendor,.git,dist,__pycache__'
-          claude-model: 'claude-sonnet-4-6'
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Perform a security review of this PR. Focus on:
+            1. Hardcoded secrets, API keys, or credentials
+            2. SQL injection, XSS, command injection vulnerabilities
+            3. Insecure use of eval(), exec(), or dynamic code execution
+            4. Sensitive data in logs or error messages
+            5. Missing input validation at system boundaries
+            6. Insecure file operations (path traversal, symlink attacks)
+
+            Exclude: node_modules, vendor, .git, dist, __pycache__
+
+            Post findings as a PR review. Do NOT approve — only flag issues.
 
   channel-alert:
     runs-on: ubuntu-latest

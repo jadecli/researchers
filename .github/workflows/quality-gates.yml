@@ -23,6 +23,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
           cache-dependency-path: |
+            agenttasks/package-lock.json
             claude-multi-agent-sdk/package-lock.json
             claude-multi-agent-dispatch/package-lock.json
             agentcrawls-ts/package-lock.json
@@ -31,6 +32,9 @@ jobs:
 
       - name: Setup
         run: make setup
+
+      - name: Install agenttasks dependencies
+        run: cd agenttasks && npm ci
 
       - name: Quality gates (pre-commit runs all hooks)
         run: pre-commit run --all-files
