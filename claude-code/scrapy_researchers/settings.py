@@ -24,8 +24,15 @@ DOWNLOAD_TIMEOUT = 30
 DOWNLOAD_MAXSIZE = 10_485_760  # 10 MB — skip oversized responses
 DOWNLOAD_WARNSIZE = 5_242_880  # 5 MB — warn in logs
 
-# User agent
+# User agent — identify as a documentation research bot
 USER_AGENT = "ScrapyResearchers/0.1 (+https://github.com/researchers/scrapy-researchers)"
+
+# ── Bloom filter duplicate filtering ────────────────────────────
+# Request-level: replaces Scrapy's default set-based RFPDupeFilter.
+# Per-spider bloom parameters (capacity, FP rate, persist path) are
+# injected automatically by BloomProfile via BaseResearchSpider.update_settings().
+# See bloom_filter.BLOOM_PROFILES for spider-specific tuning.
+DUPEFILTER_CLASS = "scrapy_researchers.bloom_dupefilter.BloomDupeFilter"
 
 # ── Downloader middlewares ───────────────────────────────────────
 DOWNLOADER_MIDDLEWARES = {

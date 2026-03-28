@@ -1,10 +1,20 @@
-"""Spider for crawling platform.claude.com documentation."""
+"""Spider for crawling platform.claude.com documentation.
+
+Anti-blocking strategy for iterative crawling:
+- Bloom filter dedup prevents re-requesting known URLs across runs
+  (BloomProfile: 5K capacity, 0.05% FP rate — strict to catch page updates)
+- Exponential backoff on 429/503 with prioritized fresh requests
+- llms.txt as entry point (designed for bot consumption, not blocked)
+- Conditional requests via HTTP cache (304 Not Modified = no bandwidth)
+- URL shuffling + jitter to avoid sequential crawling patterns
+"""
 
 from __future__ import annotations
 
+import random
 from datetime import datetime
 from typing import Any, Generator
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import scrapy
 from scrapy.http import Response
@@ -16,6 +26,8 @@ class PlatformSpider(BaseResearchSpider):
     """Crawls platform.claude.com starting from its llms.txt.
 
     Extracts API documentation, SDK guides, and platform feature pages.
+    Bloom profile auto-applied: conservative politeness, strict FP rate,
+    per-spider persist path for cross-run dedup.
     """
 
     name = "platform_spider"
@@ -24,7 +36,13 @@ class PlatformSpider(BaseResearchSpider):
 
     custom_settings = {
         "DEPTH_LIMIT": 4,
+        "RETRY_HTTP_CODES": [429, 500, 502, 503, 504, 522, 524, 408],
     }
+
+    # Priority tiers: lower number = higher priority in scheduler
+    PRIORITY_INDEX = 10      # llms.txt index page
+    PRIORITY_FRESH = 5       # URLs from llms.txt (never-seen)
+    PRIORITY_INTERNAL = 0    # followed internal links (lower priority)
 
     def parse(self, response: Response) -> Generator[scrapy.Request | dict[str, Any], None, None]:
         """Parse llms.txt or documentation page."""
@@ -34,7 +52,12 @@ class PlatformSpider(BaseResearchSpider):
             yield from self._parse_platform_page(response)
 
     def _parse_index(self, response: Response) -> Generator[scrapy.Request, None, None]:
-        """Parse the platform llms.txt index for doc URLs."""
+        """Parse the platform llms.txt index for doc URLs.
+
+        llms.txt is specifically designed for LLM/bot consumption —
+        it's the safest entry point that won't trigger anti-bot measures.
+        """
+        urls = []
         for line in response.text.split("\n"):
             line = line.strip()
             if not line or line.startswith("#"):
@@ -42,7 +65,18 @@ class PlatformSpider(BaseResearchSpider):
 
             url = self._extract_url(line, response.url)
             if url:
-                yield scrapy.Request(url, callback=self._parse_platform_page_callback)
+                urls.append(url)
+
+        # Shuffle to avoid sequential crawling patterns that trigger rate limits
+        random.shuffle(urls)
+
+        for url in urls:
+            yield scrapy.Request(
+                url,
+                callback=self._parse_platform_page_callback,
+                priority=self.PRIORITY_FRESH,
+                meta={"crawl_source": "llms_txt"},
+            )
 
     def _extract_url(self, line: str, base_url: str) -> str | None:
         """Extract URL from an index line."""
@@ -65,12 +99,23 @@ class PlatformSpider(BaseResearchSpider):
         """Parse a platform page and follow internal links."""
         yield from self._parse_platform_page(response)
 
+        # Follow internal links at lower priority — bloom filter will
+        # efficiently skip URLs already seen in this or previous runs
+        seen_on_page: set[str] = set()
         for href in response.css("a[href]::attr(href)").getall():
             absolute = urljoin(response.url, href)
-            from urllib.parse import urlparse
-
-            if urlparse(absolute).netloc in self.allowed_domains:
-                yield scrapy.Request(absolute, callback=self._parse_platform_page_callback)
+            if urlparse(absolute).netloc not in self.allowed_domains:
+                continue
+            # Strip fragments to reduce duplicate requests
+            absolute = absolute.split("#")[0]
+            if absolute and absolute not in seen_on_page:
+                seen_on_page.add(absolute)
+                yield scrapy.Request(
+                    absolute,
+                    callback=self._parse_platform_page_callback,
+                    priority=self.PRIORITY_INTERNAL,
+                    meta={"crawl_source": "internal_link"},
+                )
 
     def _parse_platform_page(
         self, response: Response
@@ -82,6 +127,7 @@ class PlatformSpider(BaseResearchSpider):
 
         page_type = self._classify_page(response.url, content_md)
         metadata["page_type"] = page_type
+        metadata["crawl_source"] = response.meta.get("crawl_source", "unknown")
 
         item = {
             "url": response.url,

@@ -80,11 +80,15 @@ class ClaudeComSpider(BaseResearchSpider):
         """Parse doc page and follow internal links."""
         yield from self._parse_doc_page(response)
 
+        # Per-page dedup + fragment stripping reduces redundant requests;
+        # bloom filter handles cross-run dedup transparently
+        seen_on_page: set[str] = set()
         for href in response.css("a[href]::attr(href)").getall():
-            absolute = urljoin(response.url, href)
+            absolute = urljoin(response.url, href).split("#")[0]
             from urllib.parse import urlparse
 
-            if urlparse(absolute).netloc in self.allowed_domains:
+            if absolute and absolute not in seen_on_page and urlparse(absolute).netloc in self.allowed_domains:
+                seen_on_page.add(absolute)
                 yield scrapy.Request(
                     absolute,
                     callback=self._parse_doc_page_callback,

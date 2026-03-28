@@ -1,4 +1,4 @@
-"""Base spider class with improvement loop integration."""
+"""Base spider class with improvement loop and bloom filter integration."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from typing import Any, Generator
 import scrapy
 from scrapy.http import Response
 
+from scrapy_researchers.bloom_filter import BloomProfile, get_bloom_profile
 from scrapy_researchers.extractors.markdown_extractor import MarkdownExtractor
 from scrapy_researchers.extractors.metadata_extractor import MetadataExtractor
 from scrapy_researchers.feedback.quality_scorer import QualityScorer
@@ -22,6 +23,7 @@ class BaseResearchSpider(scrapy.Spider):
     - Automatic quality scoring on each crawled page
     - Context delta loading from previous improvement rounds
     - Improvement log writing for the feedback loop
+    - Bloom filter profile auto-applied from spider name
     """
 
     improvement_log: list[dict[str, Any]] = []
@@ -36,7 +38,27 @@ class BaseResearchSpider(scrapy.Spider):
         self.metadata_extractor = MetadataExtractor()
         self.quality_scorer = QualityScorer()
         self.improvement_log = []
+        self._bloom_profile = get_bloom_profile(self.name)
         self._context_delta = self.load_context_delta()
+
+    @classmethod
+    def update_settings(cls, settings: Any) -> None:
+        """Inject bloom profile settings before spider starts.
+
+        Called by Scrapy during spider initialization — merges the
+        bloom profile for this spider into the active settings, so
+        BloomDupeFilter and DedupPipeline pick up the right config.
+        """
+        super().update_settings(settings)
+        # Resolve profile from class name (spider.name not available yet at class level)
+        # Subclasses that set `name` as a class attribute will match correctly.
+        profile = get_bloom_profile(getattr(cls, "name", ""))
+        bloom_settings = profile.to_scrapy_settings(getattr(cls, "name", "default"))
+        # Only set bloom keys that the spider hasn't explicitly overridden
+        spider_overrides = cls.custom_settings or {}
+        for key, value in bloom_settings.items():
+            if key not in spider_overrides:
+                settings.set(key, value, priority="spider")
 
     def on_page_crawled(self, item: dict[str, Any], response: Response) -> dict[str, Any]:
         """Score a crawled page and write context delta information.
