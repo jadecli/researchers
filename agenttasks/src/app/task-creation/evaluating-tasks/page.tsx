@@ -5,7 +5,6 @@ import Link from "next/link";
 import { TabGroup } from "@/components/TabGroup";
 import { CodeBlock } from "@/components/CodeBlock";
 import { Callout } from "@/components/Callout";
-import { Code } from "@/components/Code";
 
 const DIMENSIONS = [
   { name: "Completeness", weight: "0.30", desc: "Does the extracted content cover the full scope of the source page? Missing sections, truncated code blocks, or dropped navigation elements reduce completeness." },

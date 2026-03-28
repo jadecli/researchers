@@ -18,7 +18,7 @@ export default function ExceptionsPage() {
     >
       <Collapsible title="DropItem" defaultOpen>
         <p className="text-sm text-[#b0aea5] mb-3">
-          Raised in a pipeline's <Code>process_item</Code> to discard an item. The item is not passed
+          Raised in a pipeline&apos;s <Code>process_item</Code> to discard an item. The item is not passed
           to subsequent pipelines and is not exported.
         </p>
         <CodeBlock language="python" title="DropItem usage">

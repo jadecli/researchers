@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useId, useRef } from "react";
+import { useState, useId } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface Tab {
@@ -16,12 +16,10 @@ interface TabGroupProps {
 export function TabGroup({ tabs, defaultIndex = 0 }: TabGroupProps) {
   const id = useId();
   const [active, setActive] = useState(defaultIndex);
-  const prevRef = useRef(defaultIndex);
-
-  const direction = active > prevRef.current ? 1 : -1;
+  const [direction, setDirection] = useState(1);
 
   const handleTabChange = (index: number) => {
-    prevRef.current = active;
+    setDirection(index > active ? 1 : -1);
     setActive(index);
   };
 

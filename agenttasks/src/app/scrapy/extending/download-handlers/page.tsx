@@ -16,7 +16,7 @@ export default function DownloadHandlersPage() {
     >
       <Collapsible title="Built-in Handlers" defaultOpen>
         <p className="text-sm text-[#b0aea5] leading-relaxed mb-3">
-          Each URI scheme maps to a handler class. The HTTP/HTTPS handlers use Twisted's
+          Each URI scheme maps to a handler class. The HTTP/HTTPS handlers use Twisted&apos;s
           HTTP client under the hood. You can override or add handlers via the{" "}
           <Code>DOWNLOAD_HANDLERS</Code> setting.
         </p>

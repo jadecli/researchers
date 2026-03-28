@@ -26,7 +26,8 @@ permissions:
 jobs:
   # Create or update preview branch when PR is opened/updated
   create-preview:
-    if: github.event.action != 'closed' && vars.NEON_PROJECT_ID != ''
+    if: github.event.action != 'closed'
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -92,6 +93,7 @@ jobs:
   schema-diff:
     if: github.event.action != 'closed'
     needs: create-preview
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

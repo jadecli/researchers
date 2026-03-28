@@ -45,7 +45,7 @@ export default function ComponentsPage() {
         <p className="text-sm text-[#b0aea5] leading-relaxed mb-3">
           In AgentTasks, every custom component pulls its configuration from crawler
           settings. This means we can change behavior per-spider by overriding
-          settings in the spider's <Code>custom_settings</Code> dict.
+          settings in the spider&apos;s <Code>custom_settings</Code> dict.
         </p>
         <CodeBlock language="python" title="Per-spider configuration">
 {`class AnthropicSpider(scrapy.Spider):

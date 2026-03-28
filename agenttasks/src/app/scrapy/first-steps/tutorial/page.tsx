@@ -106,7 +106,7 @@ class DocsSpider(scrapy.Spider):
       <Callout type="tip">
         The <Code>response.follow()</Code> method automatically resolves relative URLs.
         You do not need to build absolute URLs manually — Scrapy handles this
-        using the response's base URL.
+        using the response&apos;s base URL.
       </Callout>
 
       {/* Step 3 */}
