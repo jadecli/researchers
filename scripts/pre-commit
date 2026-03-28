@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# pre-commit — Git pre-commit hook for jadecli/researchers
+#
+# Validates:
+# 1. SQL migration integrity (numbering, transactions, secrets)
+# 2. TypeScript compilation for Neon-touching modules
+# 3. No .env files staged (secret leak prevention)
+
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+echo "=== Pre-Commit Checks ==="
+echo ""
+
+# ── 1. Block .env files from being committed ─────────────────
+echo "1. Secret leak prevention"
+staged_env=$(git diff --cached --name-only | grep -E '\.env$|\.env\.local$|\.env\.production$' || true)
+if [ -n "$staged_env" ]; then
+    echo -e "${RED}BLOCKED${NC}: .env file(s) staged for commit:"
+    echo "  $staged_env"
+    echo "  Remove with: git reset HEAD <file>"
+    exit 1
+fi
+echo -e "  ${GREEN}PASS${NC}: No .env files staged"
+
+# ── 2. SQL migration validation ──────────────────────────────
+echo ""
+echo "2. SQL migration validation"
+staged_sql=$(git diff --cached --name-only | grep -E '\.sql$' || true)
+if [ -n "$staged_sql" ]; then
+    echo "  SQL files staged — running migration validator..."
+    if [ -f "scripts/validate-migrations.sh" ]; then
+        bash scripts/validate-migrations.sh
+    else
+        echo -e "  ${RED}FAIL${NC}: scripts/validate-migrations.sh not found"
+        exit 1
+    fi
+else
+    echo -e "  ${GREEN}SKIP${NC}: No SQL files staged"
+fi
+
+# ── 3. TypeScript type-check for Neon-touching modules ───────
+echo ""
+echo "3. TypeScript type-check (Neon modules)"
+staged_ts=$(git diff --cached --name-only | grep -E '(neon|persistence|crawler|layer).*\.ts$' || true)
+if [ -n "$staged_ts" ]; then
+    echo "  TypeScript files touching Neon modules staged..."
+
+    # Check claude-channel-dispatch-routing types
+    if echo "$staged_ts" | grep -q 'claude-channel-dispatch-routing'; then
+        if [ -f "claude-channel-dispatch-routing/tsconfig.json" ]; then
+            echo "  Running tsc --noEmit for channel-dispatch..."
+            npx tsc --noEmit -p claude-channel-dispatch-routing/tsconfig.json 2>&1 || {
+                echo -e "  ${RED}FAIL${NC}: TypeScript errors in channel-dispatch"
+                exit 1
+            }
+            echo -e "  ${GREEN}PASS${NC}: channel-dispatch types OK"
+        fi
+    fi
+
+    # Check devops-review types
+    if echo "$staged_ts" | grep -q 'devops-review'; then
+        if [ -f "devops-review/tsconfig.json" ]; then
+            echo "  Running tsc --noEmit for devops-review..."
+            npx tsc --noEmit -p devops-review/tsconfig.json 2>&1 || {
+                echo -e "  ${RED}FAIL${NC}: TypeScript errors in devops-review"
+                exit 1
+            }
+            echo -e "  ${GREEN}PASS${NC}: devops-review types OK"
+        fi
+    fi
+else
+    echo -e "  ${GREEN}SKIP${NC}: No Neon-touching TypeScript files staged"
+fi
+
+echo ""
+echo -e "${GREEN}All pre-commit checks passed.${NC}"

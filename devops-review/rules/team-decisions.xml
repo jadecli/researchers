@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Team Decision Rules — DevOps Engine
+
+  These are the architectural decisions the DevOps agent validates against.
+  Sourced from ARCHITECTURE.md key decisions + CLAUDE.md conventions across repos.
+
+  Both Claude Code (agent) and Claude Cowork (skill) consume this file.
+  Non-technical operators can read and understand each rule + rationale.
+-->
+<team-decisions xmlns="https://jadecli.com/devops/pr-review/v1">
+
+  <!-- 1. Boris Cherny Branded Types -->
+  <decision id="TD-001" category="branded-types">
+    <rule>All IDs (DispatchId, RoundId, AgentId, SenderId, etc.) must use branded types: type Brand&lt;K, T&gt; = K &amp; { readonly __brand: T }</rule>
+    <rationale>Prevents ID confusion at compile time. A DispatchId cannot be passed where an AgentId is expected.</rationale>
+    <source>ARCHITECTURE.md — Key Architectural Decision #1</source>
+  </decision>
+
+  <!-- 2. Result<T,E> Pattern -->
+  <decision id="TD-002" category="result-pattern">
+    <rule>No thrown exceptions crossing module boundaries. All fallible operations return Result&lt;T, E&gt; using Ok() and Err() constructors.</rule>
+    <rationale>Explicit error handling at every call site. Callers cannot ignore errors.</rationale>
+    <source>ARCHITECTURE.md — Key Architectural Decision #2</source>
+  </decision>
+
+  <!-- 3. Kimball Three-Layer Separation -->
+  <decision id="TD-003" category="kimball-compliance">
+    <rule>Database schema must separate into Runtime (3NF writes), Reporting (star schema reads), and Semantic (business metrics only). No cross-layer direct references.</rule>
+    <rationale>Write-optimized and read-optimized schemas serve different access patterns. Semantic layer provides stable business contract.</rationale>
+    <source>ARCHITECTURE.md — Key Architectural Decision #3; claude-channel-dispatch-routing/.claude/rules/kimball-data-architecture.md</source>
+  </decision>
+
+  <!-- 4. Type Safety -->
+  <decision id="TD-004" category="type-safety">
+    <rule>TypeScript must compile clean under strict mode. No 'any' types. Use 'unknown' with type guards when type is uncertain. Readonly everything.</rule>
+    <rationale>Boris Cherny strict mode catches entire classes of bugs at compile time.</rationale>
+    <source>claude-multi-agent-sdk/.claude/CLAUDE.md; claude-multi-agent-dispatch/.claude/CLAUDE.md</source>
+  </decision>
+
+  <!-- 5. JSONL Logging -->
+  <decision id="TD-005" category="architectural-consistency">
+    <rule>All dispatch events, crawl events, and agent decisions must be logged to JSONL. Each line is a self-contained JSON object with timestamp.</rule>
+    <rationale>Append-only structured logging enables offline analysis and audit trails without database dependency.</rationale>
+    <source>claude-multi-agent-dispatch — src/logging/; ARCHITECTURE.md Phase 4</source>
+  </decision>
+
+  <!-- 6. Quality Thresholds -->
+  <decision id="TD-006" category="test-coverage">
+    <rule>All repos must maintain passing test suites. New code must include tests. Quality thresholds escalate across rounds (0.60 to 0.85).</rule>
+    <rationale>386/386 tests pass across the monorepo. Regressions are blockers.</rationale>
+    <source>ARCHITECTURE.md — Test Results table</source>
+  </decision>
+
+  <!-- 7. Security: No Hardcoded Credentials -->
+  <decision id="TD-007" category="security">
+    <rule>No hardcoded API keys, tokens, passwords, or PII in source code. Use environment variables or secrets management. URL allowlists enforced.</rule>
+    <rationale>OWASP top 10 compliance. Security scanners run in CI.</rationale>
+    <source>claude-code-security-review/rules/url_allowlist.yaml; claude-code-security-review/rules/pii_patterns.yaml</source>
+  </decision>
+
+  <!-- 8. Naming Conventions -->
+  <decision id="TD-008" category="naming-conventions">
+    <rule>TypeScript: camelCase for variables/functions, PascalCase for types/classes/enums. Python: snake_case for variables/functions, PascalCase for classes. File names: kebab-case for TS, snake_case for Python.</rule>
+    <rationale>Consistent naming across the monorepo reduces cognitive load.</rationale>
+    <source>Established convention across all 9 sub-repos</source>
+  </decision>
+
+  <!-- 9. MCP Server Pattern -->
+  <decision id="TD-009" category="architectural-consistency">
+    <rule>MCP servers use @modelcontextprotocol/sdk, expose tools via Zod schemas, and provide resources for documentation. Server name follows 'domain-capability' pattern.</rule>
+    <rationale>Consistent MCP server pattern enables tool discovery and 98.7% token reduction.</rationale>
+    <source>claude-multi-agent-sdk/src/mcp/server.ts; claude-channel-dispatch-routing/src/channel/server.ts</source>
+  </decision>
+
+  <!-- 10. Agent Definition Format -->
+  <decision id="TD-010" category="architectural-consistency">
+    <rule>Agent definitions use YAML frontmatter in .claude/agents/*.md with fields: name, description, tools, model, memory. Body describes role, capabilities, workflow, constraints.</rule>
+    <rationale>Declarative agent definitions enable both Claude Code (CLI invocation) and Claude Cowork (sub-agent dispatch).</rationale>
+    <source>.claude/agents/ across claude-code-actions, claude-multi-agent-dispatch</source>
+  </decision>
+
+  <!-- 11. Dependency Hygiene -->
+  <decision id="TD-011" category="dependency-hygiene">
+    <rule>No unnecessary dependencies. Pure-Python implementations preferred over PyPI packages when feasible (e.g., Bloom filter). Lock files committed. No floating versions in production.</rule>
+    <rationale>Minimizes supply chain attack surface and avoids dependency hell (e.g., scrapy-magicfields BaseItem removal).</rationale>
+    <source>ARCHITECTURE.md — Bug #10 (scrapy-magicfields); PR #5 (pure-Python Bloom filter)</source>
+  </decision>
+
+  <!-- 12. Context Delta Steering -->
+  <decision id="TD-012" category="architectural-consistency">
+    <rule>Iterative processes must generate context deltas (new_patterns, failing_targets, quality_trajectory, steer_direction) that inject into the next iteration.</rule>
+    <rationale>Prevents repetitive failures. Each iteration builds on accumulated knowledge.</rationale>
+    <source>ARCHITECTURE.md — Key Architectural Decision #6</source>
+  </decision>
+
+</team-decisions>

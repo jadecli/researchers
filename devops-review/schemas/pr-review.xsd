@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PR Review Validation Schema — DevOps Engine
+
+  Each open PR gets one <pr-review> XML document generated from the diff.
+  The DevOps agent (Code surface) or Cowork skill (Cowork surface) ingests
+  this structured input, runs typed checks, and returns feedback.
+
+  Shared by both surfaces. Neither surface owns the schema.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="https://jadecli.com/devops/pr-review/v1"
+           xmlns:pr="https://jadecli.com/devops/pr-review/v1"
+           elementFormDefault="qualified">
+
+  <!-- Root element: one per PR -->
+  <xs:element name="pr-review">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="metadata" type="pr:MetadataType"/>
+        <xs:element name="diff-summary" type="pr:DiffSummaryType"/>
+        <xs:element name="checks" type="pr:ChecksType"/>
+        <xs:element name="team-decisions" type="pr:TeamDecisionsType"/>
+        <xs:element name="context" type="pr:ContextType" minOccurs="0"/>
+      </xs:sequence>
+      <xs:attribute name="version" type="xs:string" fixed="1.0"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- PR metadata from GitHub -->
+  <xs:complexType name="MetadataType">
+    <xs:sequence>
+      <xs:element name="pr-number" type="xs:positiveInteger"/>
+      <xs:element name="title" type="xs:string"/>
+      <xs:element name="author" type="xs:string"/>
+      <xs:element name="branch" type="xs:string"/>
+      <xs:element name="base" type="xs:string"/>
+      <xs:element name="created-at" type="xs:dateTime"/>
+      <xs:element name="updated-at" type="xs:dateTime"/>
+      <xs:element name="labels" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="label" type="xs:string" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Diff summary: files changed, additions, deletions -->
+  <xs:complexType name="DiffSummaryType">
+    <xs:sequence>
+      <xs:element name="files-changed" type="xs:nonNegativeInteger"/>
+      <xs:element name="additions" type="xs:nonNegativeInteger"/>
+      <xs:element name="deletions" type="xs:nonNegativeInteger"/>
+      <xs:element name="affected-repos" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="repo" type="xs:string" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="file-list">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="file" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:simpleContent>
+                  <xs:extension base="xs:string">
+                    <xs:attribute name="status" type="pr:FileStatusType"/>
+                    <xs:attribute name="additions" type="xs:nonNegativeInteger"/>
+                    <xs:attribute name="deletions" type="xs:nonNegativeInteger"/>
+                  </xs:extension>
+                </xs:simpleContent>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="FileStatusType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="added"/>
+      <xs:enumeration value="modified"/>
+      <xs:enumeration value="deleted"/>
+      <xs:enumeration value="renamed"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Typed checks: each check has a category, severity, and pass/fail -->
+  <xs:complexType name="ChecksType">
+    <xs:sequence>
+      <xs:element name="check" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="name" type="xs:string"/>
+            <xs:element name="category" type="pr:CheckCategoryType"/>
+            <xs:element name="severity" type="pr:SeverityType"/>
+            <xs:element name="description" type="xs:string"/>
+            <xs:element name="result" type="pr:CheckResultType" minOccurs="0"/>
+            <xs:element name="evidence" type="xs:string" minOccurs="0"/>
+            <xs:element name="suggestion" type="xs:string" minOccurs="0"/>
+          </xs:sequence>
+          <xs:attribute name="id" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="CheckCategoryType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="architectural-consistency"/>
+      <xs:enumeration value="type-safety"/>
+      <xs:enumeration value="naming-conventions"/>
+      <xs:enumeration value="test-coverage"/>
+      <xs:enumeration value="security"/>
+      <xs:enumeration value="performance"/>
+      <xs:enumeration value="kimball-compliance"/>
+      <xs:enumeration value="branded-types"/>
+      <xs:enumeration value="result-pattern"/>
+      <xs:enumeration value="documentation"/>
+      <xs:enumeration value="dependency-hygiene"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="SeverityType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="blocker"/>
+      <xs:enumeration value="warning"/>
+      <xs:enumeration value="info"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="CheckResultType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="pass"/>
+      <xs:enumeration value="fail"/>
+      <xs:enumeration value="skip"/>
+      <xs:enumeration value="pending"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Team decisions: the rules we validate against -->
+  <xs:complexType name="TeamDecisionsType">
+    <xs:sequence>
+      <xs:element name="decision" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="rule" type="xs:string"/>
+            <xs:element name="rationale" type="xs:string"/>
+            <xs:element name="source" type="xs:string"/>
+          </xs:sequence>
+          <xs:attribute name="id" type="xs:string" use="required"/>
+          <xs:attribute name="category" type="pr:CheckCategoryType" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Optional context: ARCHITECTURE.md excerpt, related PRs, etc. -->
+  <xs:complexType name="ContextType">
+    <xs:sequence>
+      <xs:element name="architecture-excerpt" type="xs:string" minOccurs="0"/>
+      <xs:element name="related-prs" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="pr" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:simpleContent>
+                  <xs:extension base="xs:string">
+                    <xs:attribute name="number" type="xs:positiveInteger"/>
+                    <xs:attribute name="relationship" type="xs:string"/>
+                  </xs:extension>
+                </xs:simpleContent>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="todos" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>

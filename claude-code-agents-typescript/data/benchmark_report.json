@@ -1,0 +1,153 @@
+{
+  "iterations": 5,
+  "timestamp": "2026-03-28T04:57:04.825Z",
+  "results": {
+    "python_scrapy": {
+      "runs": [
+        {
+          "elapsedMs": 60062.264927,
+          "items": 0,
+          "avgQuality": 0,
+          "errors": 0
+        },
+        {
+          "elapsedMs": 60047.02359799999,
+          "items": 0,
+          "avgQuality": 0,
+          "errors": 0
+        },
+        {
+          "elapsedMs": 60061.556377000015,
+          "items": 0,
+          "avgQuality": 0,
+          "errors": 0
+        },
+        {
+          "elapsedMs": 60048.718073,
+          "items": 0,
+          "avgQuality": 0,
+          "errors": 0
+        },
+        {
+          "elapsedMs": 60041.15661299997,
+          "items": 0,
+          "avgQuality": 0,
+          "errors": 0
+        }
+      ],
+      "stats": {
+        "n": 5,
+        "meanMs": 60052.14,
+        "stddevMs": 8.36,
+        "cvPercent": 0.01,
+        "minMs": 60041.16,
+        "maxMs": 60062.26,
+        "avgItems": 0,
+        "avgQuality": 0,
+        "avgErrors": 0
+      }
+    },
+    "typescript_cheerio": {
+      "runs": [
+        {
+          "elapsedMs": 122.58202899998287,
+          "items": 2,
+          "avgQuality": 1,
+          "errors": 8
+        },
+        {
+          "elapsedMs": 39.245164999971166,
+          "items": 2,
+          "avgQuality": 1,
+          "errors": 8
+        },
+        {
+          "elapsedMs": 34.28153699997347,
+          "items": 2,
+          "avgQuality": 1,
+          "errors": 8
+        },
+        {
+          "elapsedMs": 31.08989099995233,
+          "items": 2,
+          "avgQuality": 1,
+          "errors": 8
+        },
+        {
+          "elapsedMs": 37.71383799996693,
+          "items": 2,
+          "avgQuality": 1,
+          "errors": 8
+        }
+      ],
+      "stats": {
+        "n": 5,
+        "meanMs": 52.98,
+        "stddevMs": 34.91,
+        "cvPercent": 65.9,
+        "minMs": 31.09,
+        "maxMs": 122.58,
+        "avgItems": 2,
+        "avgQuality": 1,
+        "avgErrors": 8
+      }
+    },
+    "crawlee_mnemonist_baml": {
+      "runs": [
+        {
+          "elapsedMs": 120019.42519900005,
+          "items": 0,
+          "avgQuality": 0,
+          "errors": 1
+        },
+        {
+          "elapsedMs": 120029.28859000001,
+          "items": 0,
+          "avgQuality": 0,
+          "errors": 1
+        },
+        {
+          "elapsedMs": 120023.35418599995,
+          "items": 0,
+          "avgQuality": 0,
+          "errors": 1
+        },
+        {
+          "elapsedMs": 120029.351119,
+          "items": 0,
+          "avgQuality": 0,
+          "errors": 1
+        },
+        {
+          "elapsedMs": 120030.16868599993,
+          "items": 0,
+          "avgQuality": 0,
+          "errors": 1
+        }
+      ],
+      "stats": {
+        "n": 5,
+        "meanMs": 120026.32,
+        "stddevMs": 4.22,
+        "cvPercent": 0,
+        "minMs": 120019.43,
+        "maxMs": 120030.17,
+        "avgItems": 0,
+        "avgQuality": 0,
+        "avgErrors": 1
+      }
+    }
+  },
+  "ranking": {
+    "bySpeed": [
+      "TS Cheerio",
+      "Python Scrapy",
+      "Crawlee+mnemonist+BAML"
+    ],
+    "byConsistency": [
+      "Crawlee+mnemonist+BAML",
+      "Python Scrapy",
+      "TS Cheerio"
+    ]
+  }
+}

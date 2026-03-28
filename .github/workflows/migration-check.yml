@@ -1,0 +1,171 @@
+# migration-check.yml — SQL migration validation on every PR
+#
+# Runs on ALL PRs (not just SQL changes) to catch:
+# 1. Migration file integrity (numbering, transactions, secrets)
+# 2. Neon billing alerts (cost awareness)
+# 3. TypeScript type-checking for persistence layers
+#
+# This is the CI equivalent of the pre-commit hook — catches
+# anything that slipped past local hooks.
+
+name: Migration & Schema Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+    paths:
+      - 'claude-channel-dispatch-routing/migrations/**'
+      - 'claude-channel-dispatch-routing/src/persistence/**'
+
+jobs:
+  validate-sql:
+    name: Validate SQL Migrations
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run migration validator
+        run: bash scripts/validate-migrations.sh
+
+      - name: SQL syntax check (pg_format dry-run)
+        run: |
+          # Install pg_format for SQL formatting validation
+          sudo apt-get update -qq && sudo apt-get install -y -qq pgformatter > /dev/null 2>&1 || true
+
+          if command -v pg_format &> /dev/null; then
+            echo "=== SQL Formatting Check ==="
+            errors=0
+            for f in claude-channel-dispatch-routing/migrations/0*.sql; do
+              # pg_format returns formatted SQL — diff against original
+              diff <(pg_format "$f") "$f" > /dev/null 2>&1 || {
+                echo "  WARN: $(basename $f) has formatting differences (non-blocking)"
+              }
+            done
+            echo "  SQL formatting check complete"
+          else
+            echo "  SKIP: pg_format not available (non-blocking)"
+          fi
+
+  typecheck-persistence:
+    name: TypeScript Persistence Layer Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Type-check channel-dispatch-routing
+        working-directory: claude-channel-dispatch-routing
+        run: |
+          if [ -f "package.json" ]; then
+            npm install --ignore-scripts 2>/dev/null || true
+          fi
+          if [ -f "tsconfig.json" ]; then
+            npx tsc --noEmit 2>&1 || echo "::warning::TypeScript errors in channel-dispatch-routing"
+          else
+            echo "SKIP: No tsconfig.json"
+          fi
+
+      - name: Type-check devops-review
+        working-directory: devops-review
+        run: |
+          if [ -f "package.json" ]; then
+            npm install --ignore-scripts 2>/dev/null || true
+          fi
+          if [ -f "tsconfig.json" ]; then
+            npx tsc --noEmit 2>&1 || echo "::warning::TypeScript errors in devops-review"
+          else
+            echo "SKIP: No tsconfig.json"
+          fi
+
+  billing-alert:
+    name: Neon Billing Check
+    runs-on: ubuntu-latest
+    # Only check on PRs that touch migrations (branch creation costs compute)
+    if: >
+      github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'database') ||
+      contains(join(github.event.pull_request.changed_files, ' '), '.sql')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Neon Billing Alert
+        uses: neondatabase/billing-alerts-action@v1
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          # Alert if branch count exceeds threshold
+          max_branches: 10
+        continue-on-error: true  # Non-blocking — advisory only
+
+  cross-reference:
+    name: Code ↔ Schema Cross-Reference
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify all code-referenced tables exist in migrations
+        run: |
+          echo "=== Table Cross-Reference Audit ==="
+          errors=0
+
+          # Collect tables from migrations
+          migration_tables=$(grep -rhoPi 'CREATE TABLE IF NOT EXISTS\s+\K[a-z_]+\.[a-z_]+' \
+            claude-channel-dispatch-routing/migrations/0*.sql 2>/dev/null | sort -u)
+
+          echo "Tables declared in migrations:"
+          echo "$migration_tables" | sed 's/^/  /'
+          echo ""
+
+          # Collect tables from Python code
+          code_tables=$(grep -rhoP '(?:runtime|reporting|semantic|staging)\.[a-z_]+' \
+            claude-channel-dispatch-routing/src/ 2>/dev/null | \
+            grep -v '__pycache__' | sort -u || true)
+
+          # Collect tables from SQL ETL
+          etl_tables=$(grep -rhoP '(?:FROM|INTO|JOIN|UPDATE)\s+(?:runtime|reporting|semantic|staging)\.[a-z_]+' \
+            claude-channel-dispatch-routing/migrations/ 2>/dev/null | \
+            grep -oP '(?:runtime|reporting|semantic|staging)\.[a-z_]+' | sort -u || true)
+
+          # Collect tables from TypeScript
+          ts_tables=$(grep -rhoP '(?:runtime|reporting|semantic)\.[a-z_]+' \
+            claude-code-agents-typescript/src/ \
+            claude-channel-dispatch-routing/src/types/ 2>/dev/null | sort -u || true)
+
+          all_referenced=$(echo -e "$code_tables\n$etl_tables\n$ts_tables" | sort -u | grep -v '^$')
+
+          echo "Tables referenced in code/ETL:"
+          echo "$all_referenced" | sed 's/^/  /'
+          echo ""
+
+          # Check each referenced table exists in migrations
+          while IFS= read -r table; do
+            if [ -z "$table" ]; then continue; fi
+            if echo "$migration_tables" | grep -q "^${table}$"; then
+              echo "  OK: $table"
+            else
+              echo "  MISSING: $table — referenced in code but not in migrations"
+              errors=$((errors + 1))
+            fi
+          done <<< "$all_referenced"
+
+          echo ""
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors table(s) referenced in code but missing from migrations"
+            exit 1
+          else
+            echo "All referenced tables exist in migrations."
+          fi

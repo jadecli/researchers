@@ -1,0 +1,25 @@
+{
+  "name": "@jadecli/devops-review",
+  "version": "1.0.0",
+  "description": "DevOps PR review engine — shared by Claude Code (agent) and Claude Cowork (skill)",
+  "type": "module",
+  "main": "src/orchestrator.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "npx tsx src/test.ts",
+    "lint": "tsc --noEmit --pretty",
+    "review": "npx tsx src/run.ts",
+    "review:code": "npx tsx src/run.ts --surface code",
+    "review:cowork": "npx tsx src/run.ts --surface cowork",
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run build && npm run test"
+  },
+  "dependencies": {
+    "mnemonist": "^0.39.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0"
+  }
+}
