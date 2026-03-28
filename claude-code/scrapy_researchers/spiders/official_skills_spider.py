@@ -121,7 +121,6 @@ OFFICIAL_CREATORS: list[dict[str, str]] = [
     {"org": "semgrep", "repo": "skills"},
     {"org": "streamlit", "repo": "agent-skills"},
     {"org": "stripe", "repo": "ai"},
-    {"org": "supabase", "repo": "agent-skills"},
     {"org": "sveltejs", "repo": "mcp"},
     {"org": "tavily-ai", "repo": "skills"},
     {"org": "tinybirdco", "repo": "tinybird-agent-skills"},
