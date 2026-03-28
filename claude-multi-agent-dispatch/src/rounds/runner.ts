@@ -10,10 +10,12 @@ import { JSONLWriter } from '../logging/jsonl.js';
 import {
   CrawlOrchestrator,
   ANTHROPIC_DOC_TARGETS,
+  selectTargetsForSurface,
   type CrawlTarget,
   type OrchestratedCrawlResult,
 } from '../orchestrator/crawl-orchestrator.js';
 import { CrawlMetricsCollector } from '../orchestrator/crawl-metrics.js';
+import { ALL_SURFACES, type DocSurface } from '../../../.jade/surfaces/doc-surface.js';
 
 // ─── AuditStore interface ───────────────────────────────────────────────────
 // Minimal interface for the audit store dependency.
@@ -243,37 +245,38 @@ export class RoundRunner {
 
   /**
    * Select crawl targets relevant to a round definition.
-   * Maps round targetRepos and contextDeltaTemplate to URL targets.
+   * Uses .jade decision tree: maps round goal keywords to surfaces,
+   * then selects targets for those surfaces via selectTargetsForSurface().
    */
   private selectTargetsForRound(definition: RoundDefinition): CrawlTarget[] {
-    const targets: CrawlTarget[] = [];
-    const focusPatterns = (definition.contextDeltaTemplate as any)?.focusPatterns ?? [];
-    const extractionTargets = (definition.contextDeltaTemplate as any)?.extractionTargets ?? [];
+    const goalLower = definition.goal.toLowerCase();
 
-    // Match ANTHROPIC_DOC_TARGETS against round's focus patterns
-    for (const target of ANTHROPIC_DOC_TARGETS) {
-      const urlLower = target.url.toLowerCase();
-      const categoryLower = target.category.toLowerCase();
+    // Map goal keywords to .jade surfaces
+    const matchedSurfaces: DocSurface[] = [];
+    const surfaceKeywords: Record<DocSurface, readonly string[]> = {
+      'capabilities': ['capability', 'thinking', 'vision', 'streaming', 'batch', 'pdf', 'embed'],
+      'tools': ['tool', 'define', 'handle', 'parallel', 'strict', 'server tool'],
+      'tool-reference': ['web search', 'web fetch', 'bash', 'computer use', 'text editor', 'memory tool', 'code execution'],
+      'tool-infrastructure': ['tool context', 'tool combination', 'tool search', 'programmatic', 'fine-grained'],
+      'context-management': ['context', 'caching', 'compaction', 'token count'],
+      'files-assets': ['file', 'asset', 'upload'],
+      'agent-skills': ['skill', 'agent skill', 'enterprise'],
+    };
 
-      // Check if any focus pattern matches the URL or category
-      const matchesFocus = focusPatterns.length === 0 || focusPatterns.some((pattern: string) =>
-        urlLower.includes(pattern.toLowerCase()) ||
-        categoryLower.includes(pattern.toLowerCase()),
-      );
-
-      // Check if any extraction target keywords match
-      const matchesExtraction = extractionTargets.length === 0 || extractionTargets.some((et: string) =>
-        et.toLowerCase().split(/\s+/).some((word: string) =>
-          word.length > 4 && (urlLower.includes(word) || categoryLower.includes(word)),
-        ),
-      );
-
-      if (matchesFocus || matchesExtraction) {
-        targets.push(target);
+    for (const surface of ALL_SURFACES) {
+      const keywords = surfaceKeywords[surface];
+      if (keywords.some((kw) => goalLower.includes(kw))) {
+        matchedSurfaces.push(surface);
       }
     }
 
-    // If no specific matches, return a subset based on priority
+    // Collect targets from matched surfaces via .jade decision tree
+    const targets: CrawlTarget[] = [];
+    for (const surface of matchedSurfaces) {
+      targets.push(...selectTargetsForSurface(surface));
+    }
+
+    // Fallback: critical + high priority targets
     if (targets.length === 0) {
       return ANTHROPIC_DOC_TARGETS
         .filter((t) => t.priority === 'critical' || t.priority === 'high')

@@ -285,9 +285,9 @@ describe('ANTHROPIC_DOC_TARGETS', () => {
   it('should cover all major categories from the user spec', () => {
     const categories = new Set(ANTHROPIC_DOC_TARGETS.map((t) => t.category));
     expect(categories.has('tools')).toBe(true);
-    expect(categories.has('model_capabilities')).toBe(true);
-    expect(categories.has('context_management')).toBe(true);
-    expect(categories.has('agent_skills')).toBe(true);
+    expect(categories.has('capabilities')).toBe(true);
+    expect(categories.has('context-management')).toBe(true);
+    expect(categories.has('agent-skills')).toBe(true);
   });
 });
 

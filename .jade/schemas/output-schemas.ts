@@ -6,8 +6,8 @@
 
 import type { DocSurface, OutputFormat, AgentStrategy } from '../surfaces/doc-surface.js';
 import type { AgentRole } from '../agents/crawl-agent.js';
-import type { VersionedModel, SurfaceId } from '../models/base.js';
-import { createVersionedModel, toSurfaceId, assertNever } from '../models/base.js';
+import type { VersionedModel } from '../models/base.js';
+import { createVersionedModel, toSurfaceId } from '../models/base.js';
 
 // ─── Schema Field ───────────────────────────────────────────────────────────
 

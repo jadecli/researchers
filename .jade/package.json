@@ -1,0 +1,14 @@
+{
+  "name": "@jade/data-models",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Versioned data models for Anthropic doc surface crawling",
+  "exports": {
+    "./models": "./models/index.ts",
+    "./surfaces": "./surfaces/doc-surface.ts",
+    "./registry": "./surfaces/registry.ts",
+    "./agents": "./agents/crawl-agent.ts",
+    "./schemas": "./schemas/output-schemas.ts"
+  }
+}

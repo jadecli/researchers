@@ -4,7 +4,7 @@
 // Each agent file produces a prompt that a headless Claude subagent
 // can execute without human intervention.
 
-import type { DocPage, DocSurface, AgentStrategy, OutputFormat } from '../surfaces/doc-surface.js';
+import type { DocPage, DocSurface, OutputFormat } from '../surfaces/doc-surface.js';
 import type { AgentFileId, VersionedModel } from '../models/base.js';
 import { toAgentFileId, createVersionedModel, toSurfaceId } from '../models/base.js';
 

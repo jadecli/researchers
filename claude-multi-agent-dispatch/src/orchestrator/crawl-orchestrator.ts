@@ -1,8 +1,13 @@
 // src/orchestrator/crawl-orchestrator.ts — Direct crawl orchestration per agent command
 //
-// Replaces the "rat" approach (Scrapy subprocess via execSync) with inline
-// HTTP fetch → extract → score → log for each target URL. Every agent command
-// owns its crawl execution end-to-end with quantifiable metrics.
+// Orchestrates HTTP fetch → extract → score → log for each target URL.
+// Every agent command owns its crawl execution end-to-end with quantifiable metrics.
+//
+// CANONICAL SOURCES:
+//   Page registry:   .jade/surfaces/registry.ts (ALL_DOC_PAGES)
+//   Surface enums:   .jade/surfaces/doc-surface.ts (DocSurface, AgentStrategy)
+//   Decision tree:   .jade/schemas/output-schemas.ts (DECISION_TREE)
+//   Extractor types: claude-code/extractors_ts/src/types.ts (ExtractedPage, CodeBlock)
 
 import type { Result } from '../types/core.js';
 import { Ok, Err } from '../types/core.js';
@@ -15,13 +20,46 @@ import {
   type RoundMetrics,
 } from './crawl-metrics.js';
 
-// ─── Crawl Target ───────────────────────────────────────────────────────────
+// ─── Re-export from .jade canonical registry ────────────────────────────────
+// CrawlTarget is a thin adapter over .jade's DocPage for backward compat.
+// New code should import DocPage from .jade/surfaces/doc-surface.ts directly.
+
+import {
+  ALL_DOC_PAGES,
+  DOC_PAGE_REGISTRY,
+} from '../../../.jade/surfaces/registry.js';
+import type { DocPage, DocSurface, CrawlPriority } from '../../../.jade/surfaces/doc-surface.js';
+import { getDecision } from '../../../.jade/schemas/output-schemas.js';
 
 export interface CrawlTarget {
   readonly url: string;
   readonly category: string;
-  readonly priority: 'critical' | 'high' | 'medium' | 'low';
+  readonly priority: CrawlPriority;
   readonly expectedPatterns?: readonly string[];
+}
+
+/** Bridge: convert .jade DocPage to CrawlTarget for orchestrator compatibility. */
+export function docPageToCrawlTarget(page: DocPage): CrawlTarget {
+  return {
+    url: page.url,
+    category: page.surface,
+    priority: page.priority,
+  };
+}
+
+/** Canonical target list derived from .jade registry — single source of truth. */
+export const ANTHROPIC_DOC_TARGETS: readonly CrawlTarget[] =
+  ALL_DOC_PAGES.map(docPageToCrawlTarget);
+
+/**
+ * Select targets for a surface using the .jade decision tree.
+ * Replaces ad-hoc URL pattern matching with typed dispatch.
+ */
+export function selectTargetsForSurface(surface: DocSurface): readonly CrawlTarget[] {
+  const decision = getDecision(surface);
+  return ALL_DOC_PAGES
+    .filter((p) => p.surface === decision.surface)
+    .map(docPageToCrawlTarget);
 }
 
 // ─── Crawl Page Result ──────────────────────────────────────────────────────
@@ -73,74 +111,6 @@ const DEFAULT_CONFIG: CrawlOrchestratorConfig = {
   userAgent: 'ClaudeResearcher/1.0 (+https://github.com/jadecli/researchers)',
   respectRobotsTxt: true,
 };
-
-// ─── Platform Documentation Targets ─────────────────────────────────────────
-// The complete Anthropic docs surface area the user listed as capabilities.
-
-export const ANTHROPIC_DOC_TARGETS: readonly CrawlTarget[] = [
-  // Extended thinking
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking', category: 'model_capabilities', priority: 'high' },
-  // Streaming
-  { url: 'https://docs.anthropic.com/en/api/streaming', category: 'model_capabilities', priority: 'high' },
-  // Batch processing
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/message-batches', category: 'model_capabilities', priority: 'medium' },
-  // PDF support
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/pdf-support', category: 'model_capabilities', priority: 'medium' },
-  // Citations
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/citations', category: 'model_capabilities', priority: 'medium' },
-  // Vision
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/vision', category: 'model_capabilities', priority: 'high' },
-  // Embeddings
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/embeddings', category: 'model_capabilities', priority: 'medium' },
-
-  // Tools — Overview
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview', category: 'tools', priority: 'critical' },
-  // Tools — How tool use works
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use', category: 'tools', priority: 'critical' },
-  // Tools — Define tools
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/define-tools', category: 'tools', priority: 'critical' },
-  // Tools — Handle tool calls
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/handle-tool-calls', category: 'tools', priority: 'critical' },
-  // Tools — Parallel tool use
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/parallel-tool-use', category: 'tools', priority: 'high' },
-  // Tools — Strict tool use
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/strict-tool-use', category: 'tools', priority: 'high' },
-  // Tools — Prompt caching with tools
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/tool-use-with-prompt-caching', category: 'tools', priority: 'medium' },
-  // Tools — Server tools
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/server-tools', category: 'tools', priority: 'high' },
-  // Tools — Troubleshooting
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/troubleshooting', category: 'tools', priority: 'medium' },
-  // Tools — Tool reference
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/tool-reference', category: 'tools', priority: 'high' },
-
-  // Built-in tools
-  { url: 'https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/web-search-tool', category: 'tools', priority: 'high' },
-  { url: 'https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/web-fetch-tool', category: 'tools', priority: 'high' },
-  { url: 'https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/code-execution-tool', category: 'tools', priority: 'high' },
-  { url: 'https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/memory-tool', category: 'tools', priority: 'medium' },
-  { url: 'https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/bash-tool', category: 'tools', priority: 'high' },
-  { url: 'https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/computer-use-tool', category: 'tools', priority: 'medium' },
-  { url: 'https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/text-editor-tool', category: 'tools', priority: 'medium' },
-
-  // Tool infrastructure
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/manage-tool-context', category: 'tools', priority: 'medium' },
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/tool-combinations', category: 'tools', priority: 'medium' },
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/tool-search', category: 'tools', priority: 'medium' },
-
-  // Context management
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/context-windows', category: 'context_management', priority: 'high' },
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching', category: 'context_management', priority: 'high' },
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/token-counting', category: 'context_management', priority: 'medium' },
-
-  // Files & assets
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/files', category: 'files_assets', priority: 'medium' },
-
-  // Agent Skills
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/agent-skills/overview', category: 'agent_skills', priority: 'high' },
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/agent-skills/quickstart', category: 'agent_skills', priority: 'high' },
-  { url: 'https://docs.anthropic.com/en/docs/build-with-claude/agent-skills/best-practices', category: 'agent_skills', priority: 'high' },
-];
 
 // ─── CrawlOrchestrator ─────────────────────────────────────────────────────
 
@@ -199,7 +169,6 @@ export class CrawlOrchestrator {
         ? pages.reduce((s, p) => s + p.qualityScore.overall, 0) / pages.length
         : 0;
 
-    // Build the combined extracted output for quality scoring
     const extractedOutput = pages
       .map(
         (p) =>
@@ -225,7 +194,6 @@ export class CrawlOrchestrator {
 
   /**
    * Fetch a single target, extract content, score quality, record metrics.
-   * This is the core unit of work — one agent command per page.
    */
   private async fetchAndExtract(
     target: CrawlTarget,
@@ -238,7 +206,6 @@ export class CrawlOrchestrator {
     let contentLengthBytes = 0;
 
     try {
-      // ── Phase 1: Fetch ──
       const response = await fetchWithTimeout(
         target.url,
         this.config.fetchTimeoutMs,
@@ -275,17 +242,14 @@ export class CrawlOrchestrator {
 
     const fetchLatencyMs = Date.now() - fetchStart;
 
-    // ── Phase 2: Extract ──
     const extractStart = Date.now();
     const extracted = extractContent(rawContent, target.url);
     const extractLatencyMs = Date.now() - extractStart;
 
-    // ── Phase 3: Score Quality ──
     const qualityScore = await scoreOutput(extracted.content, goal);
 
     const totalLatencyMs = Date.now() - fetchStart;
 
-    // ── Phase 4: Record Metrics ──
     const pageMetrics: PageMetrics = {
       url: target.url,
       approach: this.config.approach,
@@ -319,7 +283,9 @@ export class CrawlOrchestrator {
 }
 
 // ─── Content Extraction ─────────────────────────────────────────────────────
-// Lightweight HTML → structured content extraction without external dependencies.
+// Lightweight HTML → structured content extraction.
+// NOTE: For production use, prefer claude-code/extractors_ts (cheerio-based).
+// This inline version avoids the cross-repo dependency for standalone use.
 
 interface ExtractedContent {
   readonly title: string;
@@ -330,12 +296,10 @@ interface ExtractedContent {
 }
 
 export function extractContent(html: string, url: string): ExtractedContent {
-  // Extract title
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
   const title = (h1Match?.[1] ?? titleMatch?.[1] ?? url).trim();
 
-  // Extract headings
   const headings: string[] = [];
   const headingRegex = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
   let match: RegExpExecArray | null;
@@ -343,7 +307,6 @@ export function extractContent(html: string, url: string): ExtractedContent {
     headings.push(stripTags(match[2] ?? '').trim());
   }
 
-  // Extract code blocks
   const codeBlocks: string[] = [];
   const codeRegex = /<(?:pre|code)[^>]*>([\s\S]*?)<\/(?:pre|code)>/gi;
   while ((match = codeRegex.exec(html)) !== null) {
@@ -353,7 +316,6 @@ export function extractContent(html: string, url: string): ExtractedContent {
     }
   }
 
-  // Extract links
   const links: string[] = [];
   const linkRegex = /href=["']([^"']+)["']/gi;
   while ((match = linkRegex.exec(html)) !== null) {
@@ -363,13 +325,9 @@ export function extractContent(html: string, url: string): ExtractedContent {
     }
   }
 
-  // Extract main content — strip nav, header, footer, script, style
   let contentHtml = html;
-  // Remove non-content elements
   contentHtml = contentHtml.replace(/<(script|style|nav|header|footer|aside)[^>]*>[\s\S]*?<\/\1>/gi, '');
-  // Remove HTML tags but keep text
   const text = stripTags(contentHtml);
-  // Clean up whitespace
   const content = text
     .split('\n')
     .map((line) => line.trim())

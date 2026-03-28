@@ -4,8 +4,8 @@
 // The discriminated union drives which agent handles the page,
 // which extraction strategy to use, and which YAML schema to emit.
 
-import type { SurfaceId, PageSlug, VersionedModel } from '../models/base.js';
-import { toSurfaceId, toPageSlug, createVersionedModel } from '../models/base.js';
+import type { PageSlug, VersionedModel } from '../models/base.js';
+import { toSurfaceId, createVersionedModel } from '../models/base.js';
 
 // ─── Doc Surface Enum ───────────────────────────────────────────────────────
 // Each literal maps 1:1 to a top-level section of the Anthropic docs.
