@@ -240,4 +240,16 @@ END;
 $$;
 
 -- Schedule ETL (same 15-min cadence as crawl events ETL)
--- SELECT cron.schedule('etl_skills', '*/15 * * * *', 'SELECT etl_skill_events_to_warehouse()');
+-- Note: pg_cron must be enabled first via Neon console.
+DO $$
+BEGIN
+    PERFORM cron.schedule(
+        'etl_skills_to_warehouse',
+        '*/15 * * * *',
+        'SELECT etl_skill_events_to_warehouse()'
+    );
+EXCEPTION
+    WHEN undefined_function THEN
+        RAISE NOTICE 'pg_cron not available — skills ETL scheduling skipped. Run manually or enable pg_cron.';
+END;
+$$;
