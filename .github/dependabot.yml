@@ -1,0 +1,57 @@
+version: 2
+
+updates:
+  # GitHub Actions versions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"
+
+  # agenttasks (npm)
+  - package-ecosystem: "npm"
+    directory: "/agenttasks"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "agenttasks"
+    open-pull-requests-limit: 10
+
+  # claude-multi-agent-sdk (npm)
+  - package-ecosystem: "npm"
+    directory: "/claude-multi-agent-sdk"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "sdk"
+
+  # claude-multi-agent-dispatch (npm)
+  - package-ecosystem: "npm"
+    directory: "/claude-multi-agent-dispatch"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "dispatch"
+
+  # agentcrawls-ts (npm)
+  - package-ecosystem: "npm"
+    directory: "/agentcrawls-ts"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "crawls"
+
+  # claude-code Python spiders (pip)
+  - package-ecosystem: "pip"
+    directory: "/claude-code"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "claude-code"

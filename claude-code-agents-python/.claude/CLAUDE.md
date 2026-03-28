@@ -1,5 +1,7 @@
 # Project Conventions — claude-code-agents-python
 
+See root ARCHITECTURE.md § Support Layer.
+
 ## Overview
 
 This project implements Agent SDK orchestration for iterative crawl campaigns. It combines

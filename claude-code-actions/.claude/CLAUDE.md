@@ -1,6 +1,6 @@
 # Claude Code Actions
 
-Cross-platform integration hub for Claude Code spanning GitHub Actions, GitLab CI/CD,
+See root ARCHITECTURE.md § Support Layer. Cross-platform integration hub for Claude Code spanning GitHub Actions, GitLab CI/CD,
 Chrome browser automation, Slack reporting, and Language Server Protocol setup.
 
 ## Architecture

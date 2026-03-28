@@ -1,6 +1,6 @@
 # claude-channel-dispatch-routing
 
-Production deployment repo. Channels push external events, dispatch router assigns agents,
+See root ARCHITECTURE.md § Kimball Data Architecture. Production deployment repo. Channels push external events, dispatch router assigns agents,
 Neon PG18 stores crawl state, iterative loop only re-crawls changed pages.
 
 ## Architecture

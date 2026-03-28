@@ -1,0 +1,124 @@
+name: Slack Notifications
+
+# Sends notifications to Slack for key repo events:
+# 1. PR merged to main
+# 2. CI quality-gates failure on main
+# 3. Security review findings
+#
+# Setup: Create a Slack App > Enable Incoming Webhooks > Add webhook to channel
+# Store as SLACK_WEBHOOK_URL in GitHub repo secrets.
+# Docs: https://github.com/slackapi/slack-github-action
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_run:
+    workflows: ["Quality Gates", "Claude Code Security Review"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  # Notify when a PR is merged to main
+  pr-merged:
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Detect changed sub-repos
+        id: subrepos
+        run: |
+          # List changed files to identify which sub-repos were modified
+          CHANGED=$(echo "${{ github.event.pull_request.body }}" | head -20)
+          echo "summary<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack — PR merged
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "PR #${{ github.event.pull_request.number }} merged: ${{ github.event.pull_request.title }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":merged: *PR Merged to main*\n<${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}>\nBy: `${{ github.event.pull_request.merged_by.login }}` | +${{ github.event.pull_request.additions }}/-${{ github.event.pull_request.deletions }} across ${{ github.event.pull_request.changed_files }} files"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "Branch: `${{ github.event.pull_request.head.ref }}` → `main`"
+                    }
+                  ]
+                }
+              ]
+            }
+
+  # Notify when Quality Gates or Security Review fails
+  ci-failure:
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Notify Slack — CI failure
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "CI failed: ${{ github.event.workflow_run.name }} on ${{ github.event.workflow_run.head_branch }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":red_circle: *CI Failed: ${{ github.event.workflow_run.name }}*\nBranch: `${{ github.event.workflow_run.head_branch }}`\nCommit: `${{ github.event.workflow_run.head_sha }}`\nTriggered by: `${{ github.event.workflow_run.actor.login }}`\n<${{ github.event.workflow_run.html_url }}|View Logs>"
+                  }
+                }
+              ]
+            }
+
+  # Notify on successful deploy to Vercel (triggered by Quality Gates passing on main push)
+  deploy-success:
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.name == 'Quality Gates' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Notify Slack — quality gates passed on main
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "Quality gates passed on main — Vercel deploy triggered",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":white_check_mark: *Quality Gates Passed on `main`*\nVercel deploy should be in progress.\nCommit: `${{ github.event.workflow_run.head_sha }}`\n<${{ github.event.workflow_run.html_url }}|View Run>"
+                  }
+                }
+              ]
+            }

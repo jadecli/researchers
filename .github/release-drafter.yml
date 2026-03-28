@@ -1,0 +1,78 @@
+# Release Drafter configuration
+# Used by release-drafter/release-drafter@v6
+# Docs: https://github.com/release-drafter/release-drafter
+
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+categories:
+  - title: 'Features'
+    labels:
+      - 'feat'
+      - 'enhancement'
+  - title: 'Bug Fixes'
+    labels:
+      - 'fix'
+      - 'bugfix'
+  - title: 'CI/CD'
+    labels:
+      - 'ci'
+  - title: 'Documentation'
+    labels:
+      - 'docs'
+  - title: 'Maintenance'
+    labels:
+      - 'chore'
+      - 'dependencies'
+  - title: 'Refactoring'
+    labels:
+      - 'refactor'
+
+# Auto-label PRs based on conventional commit prefix in title
+autolabeler:
+  - label: 'feat'
+    title:
+      - '/^feat(\(.+\))?:/i'
+  - label: 'fix'
+    title:
+      - '/^fix(\(.+\))?:/i'
+  - label: 'chore'
+    title:
+      - '/^chore(\(.+\))?:/i'
+  - label: 'docs'
+    title:
+      - '/^docs(\(.+\))?:/i'
+  - label: 'ci'
+    title:
+      - '/^ci(\(.+\))?:/i'
+  - label: 'refactor'
+    title:
+      - '/^refactor(\(.+\))?:/i'
+  - label: 'test'
+    title:
+      - '/^test(\(.+\))?:/i'
+
+version-resolver:
+  major:
+    labels:
+      - 'breaking'
+  minor:
+    labels:
+      - 'feat'
+      - 'enhancement'
+  patch:
+    labels:
+      - 'fix'
+      - 'chore'
+      - 'docs'
+      - 'ci'
+      - 'refactor'
+      - 'test'
+      - 'dependencies'
+  default: patch

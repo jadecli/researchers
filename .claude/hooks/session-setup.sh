@@ -36,6 +36,23 @@ if [ -d "$ROOT/agenttasks/node_modules" ] && command -v npx >/dev/null 2>&1; the
   fi
 fi
 
+# ── Pre-commit + tools setup ──────────────────────────────────
+if command -v make >/dev/null 2>&1 && [ -f "$ROOT/Makefile" ]; then
+  if make -C "$ROOT" -s setup 2>/dev/null; then
+    STATUS+=("pre-commit: installed via make setup")
+  else
+    STATUS+=("WARNING: make setup failed")
+  fi
+elif command -v uv >/dev/null 2>&1; then
+  command -v pre-commit >/dev/null || uv tool install pre-commit 2>/dev/null
+  command -v radon >/dev/null || uv tool install radon 2>/dev/null
+  if command -v pre-commit >/dev/null 2>&1; then
+    pre-commit install --install-hooks 2>/dev/null && STATUS+=("pre-commit: installed") || true
+  fi
+else
+  STATUS+=("WARNING: neither make nor uv found. Pre-commit not installed.")
+fi
+
 # ── Print status ───────────────────────────────────────────────
 echo "--- Session Environment ---"
 for line in "${STATUS[@]}"; do

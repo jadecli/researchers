@@ -14,16 +14,18 @@
     "mcp:dispatch": "npx tsx src/dispatch/mcp-server.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.52.0",
-    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@anthropic-ai/sdk": "0.80.0",
+    "@anthropic-ai/tokenizer": "0.0.4",
+    "@modelcontextprotocol/sdk": "1.28.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "vitest": "^2.0.0",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.1.9",
     "prettier": "^3.4.0",
     "tsx": "^4.19.0",
-    "@types/node": "^22.0.0"
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
   },
   "engines": {
     "node": ">=20.0.0"

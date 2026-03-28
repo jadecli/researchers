@@ -1,0 +1,42 @@
+name: Claude Code Security Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  security-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Code security scan
+        uses: anthropics/claude-code-security-review@v1
+        with:
+          claude-api-key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          comment-pr: true
+          upload-results: true
+          exclude-directories: 'node_modules,vendor,.git,dist,__pycache__'
+          claude-model: 'claude-sonnet-4-6'
+
+  channel-alert:
+    runs-on: ubuntu-latest
+    needs: security-review
+    if: failure()
+    steps:
+      - name: Alert via channel webhook
+        env:
+          CHANNEL_WEBHOOK_URL: ${{ secrets.CHANNEL_WEBHOOK_URL }}
+        run: |
+          if [ -n "$CHANNEL_WEBHOOK_URL" ]; then
+            curl -s -X POST "$CHANNEL_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "{\"text\": \"Security review flagged issues on PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}\"}" || true
+          fi

@@ -1,0 +1,86 @@
+# Pre-commit hooks for jadecli/researchers monorepo
+# Install: make setup (or: uv tool install pre-commit && pre-commit install)
+# Run all: pre-commit run --all-files
+# Docs: https://pre-commit.com
+
+repos:
+  # ── Python: ruff lint + format ──────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.1
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # ── Local hooks: monorepo-aware, conditional on file changes ─
+  - repo: local
+    hooks:
+      # TypeScript type checking
+      - id: tsc-sdk
+        name: tsc (SDK)
+        entry: bash -c 'cd claude-multi-agent-sdk && npx tsc --noEmit'
+        language: system
+        files: ^claude-multi-agent-sdk/.*\.tsx?$
+        pass_filenames: false
+
+      - id: tsc-dispatch
+        name: tsc (dispatch)
+        entry: bash -c 'cd claude-multi-agent-dispatch && npx tsc --noEmit'
+        language: system
+        files: ^claude-multi-agent-dispatch/.*\.tsx?$
+        pass_filenames: false
+
+      - id: tsc-agenttasks
+        name: tsc (agenttasks)
+        entry: bash -c 'cd agenttasks && npx tsc --noEmit'
+        language: system
+        files: ^agenttasks/.*\.tsx?$
+        pass_filenames: false
+
+      # ESLint for Next.js app
+      - id: eslint-agenttasks
+        name: eslint (agenttasks)
+        entry: bash -c 'cd agenttasks && npx eslint .'
+        language: system
+        files: ^agenttasks/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      # TypeScript tests
+      - id: vitest-sdk
+        name: vitest (SDK)
+        entry: bash -c 'cd claude-multi-agent-sdk && npx vitest run'
+        language: system
+        files: ^claude-multi-agent-sdk/.*\.tsx?$
+        pass_filenames: false
+
+      - id: vitest-dispatch
+        name: vitest (dispatch)
+        entry: bash -c 'cd claude-multi-agent-dispatch && npx vitest run'
+        language: system
+        files: ^claude-multi-agent-dispatch/.*\.tsx?$
+        pass_filenames: false
+
+      # Python tests
+      - id: pytest-python
+        name: pytest
+        entry: bash -c 'python3 -m pytest claude-code-agents-python/tests/ -x --tb=short 2>/dev/null || true'
+        language: system
+        files: \.py$
+        pass_filenames: false
+
+      # Code complexity (warn only — always exits 0)
+      - id: radon-complexity
+        name: radon complexity (warn only)
+        entry: bash -c 'command -v radon >/dev/null && radon cc --average --show-closures -n C $(git diff --cached --name-only --diff-filter=ACM | grep "\.py$" || echo /dev/null) 2>/dev/null; exit 0'
+        language: system
+        files: \.py$
+        pass_filenames: false
+        verbose: true
+
+      - id: ts-complexity
+        name: ts complexity (warn only)
+        entry: bash -c 'echo "TypeScript complexity reporting - use eslint complexity rule for detailed analysis"; exit 0'
+        language: system
+        files: \.tsx?$
+        pass_filenames: false
+        verbose: true

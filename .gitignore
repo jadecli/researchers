@@ -1,5 +1,9 @@
+# Vendor submodules (read-only reference, not owned code)
+vendor/agentskills/
+
 node_modules/
 dist/
+coverage/
 __pycache__/
 *.pyc
 *.pyo

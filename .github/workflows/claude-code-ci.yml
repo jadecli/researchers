@@ -1,0 +1,64 @@
+name: Claude Code CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Run on PR events, or on @claude mentions in comments
+    if: >
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       contains(github.event.comment.body, '@claude'))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Code review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Review this PR against the project quality standards.
+
+            Run the quality gate checks:
+            1. `cd claude-multi-agent-sdk && npx tsc --noEmit && npx vitest run`
+            2. `cd claude-multi-agent-dispatch && npx tsc --noEmit && npx vitest run`
+            3. `cd agentcrawls-ts && npx tsc --noEmit && npx vitest run`
+
+            For any failures, identify root causes and provide:
+            - Which specific files and lines are causing the failure
+            - The exact error messages
+            - Recommended fix with code snippets
+
+            Check conventional commit format on all commit messages.
+            Verify no `next/font/google` imports (must use `next/font/local`).
+            Flag any hardcoded secrets, API keys, or credentials.
+
+            Post findings as a PR review. Do NOT approve — only review.
+
+  channel-alert:
+    runs-on: ubuntu-latest
+    needs: claude-review
+    if: failure()
+    steps:
+      - name: Alert via channel webhook
+        env:
+          CHANNEL_WEBHOOK_URL: ${{ secrets.CHANNEL_WEBHOOK_URL }}
+        run: |
+          if [ -n "$CHANNEL_WEBHOOK_URL" ]; then
+            curl -s -X POST "$CHANNEL_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "{\"text\": \"Claude CI review failed on PR #${{ github.event.pull_request.number || github.event.issue.number }}: ${{ github.event.pull_request.title || github.event.issue.title }}\"}" || true
+          fi

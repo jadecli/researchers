@@ -1,5 +1,7 @@
 # Claude Code — Iterative Research Crawlers
 
+See root ARCHITECTURE.md § Crawl Engine for full spider/extractor diagram.
+
 ## Project Overview
 Multi-language Scrapy crawler system that crawls Anthropic's documentation ecosystem with iterative quality improvement. Each page crawled generates a context delta that steers the next iteration toward better extraction.
 
