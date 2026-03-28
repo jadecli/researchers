@@ -4,7 +4,7 @@
 > It captures out-of-scope items from the current session that should be
 > addressed in a fresh PR. Read by the SessionStart hook for continuity.
 >
-> Last updated: 2026-03-27 (session: typescript-data-warehouse-artifacts)
+> Last updated: 2026-03-28 (session: agentstreams-jade-department-launch)
 
 ## Bootstrap
 
@@ -32,17 +32,53 @@ After reviewing, bump the pin to the latest version in this file.
 
 ## Research Docs (.claude/research/)
 
-Five research docs exist, two more are planned. Read at session start:
+Six research docs exist, two more are planned. Read at session start:
 
 | File | Priority | Status |
 |------|----------|--------|
 | `agentcrawls.md` | P0 | Infrastructure exists, formalization needed |
 | `agentdata.md` | P0 | Infrastructure exists, Tier 4 views needed |
 | `agentevals.md` | P0 | Design complete, implementation needed |
+| `agentstreams.md` | P0 | **NEW** — unified event backbone, DDL in migration 008 |
 | `agentcommits.md` | P2 | Conceptual, start using git trailers |
 | `agentprompts.md` | P2 | Conceptual, needs data from evals first |
 | `agentmemories` | P1 | Not yet written — write research doc |
 | `agentspecs` | P3 | Not yet written — conditional |
+
+## Agentstreams (NEW — P0)
+
+Unified event stream backbone capturing all agent activity to Neon.
+- **DDL**: `claude-channel-dispatch-routing/migrations/008_agentstreams.sql`
+- **Hooks**: `capture-prompt.sh` (UserPromptSubmit), `flush-streams.sh` (manual/Stop)
+- **Session metadata**: `session-setup.sh` now emits session start events
+- **Buffer**: `.claude/memory/streams/buffer.jsonl` (local, flushes to Neon)
+- **Manifest**: `.claude/memory/streams/<branch>.json` (sync state per branch)
+- **8 event types**: prompt, commit, crawl, decision, taxonomy, eval, session, dispatch
+- **Semantic views**: session_timeline, prompt_history, decision_trail, branch_activity
+
+## Bloom Filters (IMPLEMENTED — was P1)
+
+Tool routing via probabilistic pre-check, now in both TypeScript and Python:
+- **TypeScript**: `claude-multi-agent-sdk/src/agent/bloom-filter.ts` (Boris Cherny patterns)
+- **Python + DSPy**: `claude-code-agents-python/src/dspy_pipeline/bloom_router.py`
+- **DSPy signatures**: ToolIntentClassifier, StreamEventClassifier
+- Combined router: bloom gate → DSPy classify → dispatch
+
+## YAML Agent Definitions (NEW)
+
+Four agents defined in `.jade/agents/`:
+- `orchestrator.yaml` — Opus root, Layer 2.5, Shannon thinking
+- `stream-capture.yaml` — Haiku observer, JSONL buffer
+- `taxonomy-crawler.yaml` — Sonnet researcher, DSPy PageClassifier
+- `prompt-analyst.yaml` — Sonnet analyst, intent classification
+
+## .jade/ Directory Structure (NEW)
+
+Product-strategy department artifacts:
+- `.jade/cofounder-prompts/` — 3 vision prompts + session prompts capture
+- `.jade/customer-journey-map.md` — 128 inputs, 30 outputs, 26 agents
+- `.jade/taxonomy/` — TypeScript enums + Kimball DDL for artifact classification
+- `.jade/agents/` — YAML agent definitions with paired scripts
 
 ## Out of Scope (do NOT add to current PR)
 
@@ -60,10 +96,10 @@ Five research docs exist, two more are planned. Read at session start:
 - Single-agent evaluator (Opus) with manual trigger
 - Multi-agent dispatch via claude-multi-agent-dispatch
 
-### P1: Agent bloom filters for tool routing (separate PR in progress)
-- Pre-check tool call likelihood before dispatching
-- Haiku checks bloom filter, Sonnet executes actual tool call
-- Reduces latency and wasted tokens on failed lookups
+### P1: Agent bloom filters — DONE (merged in this PR)
+- TypeScript + Python implementations shipped
+- DSPy ToolIntentClassifier + StreamEventClassifier signatures
+- Next: add vitest + pytest tests, connect to live dispatch
 
 ### P1: Write agentmemories research doc
 - Cross-session knowledge persistence
