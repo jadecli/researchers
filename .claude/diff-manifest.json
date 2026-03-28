@@ -1,0 +1,347 @@
+{
+  "_type": "BranchDiffManifest",
+  "_version": "1.0.0",
+  "metadata": {
+    "branch": "claude/explore-compass-mcp-VOU8x",
+    "baseRef": "origin/main",
+    "headRef": "24f672401cbda1c0cb1db1bda0f41219c74237b6",
+    "generatedAt": "2026-03-28T14:10:26.811Z",
+    "commitCount": 11,
+    "fileCount": 34,
+    "stats": {
+      "additions": 5523,
+      "deletions": 0
+    }
+  },
+  "commits": [
+    {
+      "hash": "24f672401cbda1c0cb1db1bda0f41219c74237b6",
+      "shortHash": "24f6724",
+      "type": "fix",
+      "subject": "fix: use CLAUDE_CODE_OAUTH_TOKEN instead of ANTHROPIC_API_KEY",
+      "authorDate": "2026-03-28T14:01:03+00:00"
+    },
+    {
+      "hash": "f8b420029f7e21b58af0e596c8a7efac41318ce9",
+      "shortHash": "f8b4200",
+      "type": "chore",
+      "subject": "chore: add agentcrawls-ts package-lock.json and ax-llm skill definitions",
+      "authorDate": "2026-03-28T13:58:21+00:00"
+    },
+    {
+      "hash": "ce65281ad0123f481d5d558d55de1aeb31003276",
+      "shortHash": "ce65281",
+      "type": "feat",
+      "subject": "feat: add root package.json scripts for test:all, lint, and crawl",
+      "authorDate": "2026-03-28T13:57:40+00:00"
+    },
+    {
+      "hash": "85f3a9406cb66a7dfa92ff0d4619fd571fa879a8",
+      "shortHash": "85f3a94",
+      "type": "ci",
+      "subject": "ci: add quality-gates GitHub Actions workflow with Claude CI/CD review",
+      "authorDate": "2026-03-28T13:57:11+00:00"
+    },
+    {
+      "hash": "071a31a6810a344fc9219031a6136b295b6cce7d",
+      "shortHash": "071a31a",
+      "type": "feat",
+      "subject": "feat: add Neon PG18 migration 008 for agentdata schema",
+      "authorDate": "2026-03-28T13:56:40+00:00"
+    },
+    {
+      "hash": "771d6b85f33d8a0570f988430b612eb34fcf0b21",
+      "shortHash": "771d6b8",
+      "type": "feat",
+      "subject": "feat: add agentcrawls-ts changelog crawler with crawlee, bloom-filters, @ax-llm/ax",
+      "authorDate": "2026-03-28T13:55:56+00:00"
+    },
+    {
+      "hash": "935ae81a98467504140098acf5fa9c9bfb7185d1",
+      "shortHash": "935ae81",
+      "type": "feat",
+      "subject": "feat: add /fix-precommit skill for automated hook failure resolution",
+      "authorDate": "2026-03-28T13:50:12+00:00"
+    },
+    {
+      "hash": "b5f34ca8eaa67c17ad295e5027b7871a3d81f8b8",
+      "shortHash": "b5f34ca",
+      "type": "feat",
+      "subject": "feat: add pre-commit auto-install to SessionStart hook with bootstrap fallback",
+      "authorDate": "2026-03-28T13:49:08+00:00"
+    },
+    {
+      "hash": "af2be4c86ef2d60798d011d6bebcdeb69dfda54f",
+      "shortHash": "af2be4c",
+      "type": "chore",
+      "subject": "chore: add pre-commit quality gates with Makefile and agentskills submodule",
+      "authorDate": "2026-03-28T13:48:15+00:00"
+    },
+    {
+      "hash": "d93683899d72d1f3cca948063312638560fcf2c3",
+      "shortHash": "d936838",
+      "type": "chore",
+      "subject": "chore: update package-lock.json after npm install",
+      "authorDate": "2026-03-28T11:56:51+00:00"
+    },
+    {
+      "hash": "872e391e27659c70ad7b6d649667621959dbd9ac",
+      "shortHash": "872e391",
+      "type": "feat",
+      "subject": "feat: add cross-session memory persistence via MCP tools",
+      "authorDate": "2026-03-28T11:56:25+00:00"
+    }
+  ],
+  "qualityGate": {
+    "testsPass": true,
+    "testCounts": {
+      "sdk": 61,
+      "dispatch": 278,
+      "crawls": 23,
+      "total": 362
+    },
+    "tscClean": true,
+    "preCommitPass": true
+  },
+  "fileCount": 34,
+  "files": [
+    {
+      "path": ".claude/hooks/bootstrap-precommit.sh",
+      "status": "added",
+      "subRepo": ".claude",
+      "additions": 30,
+      "deletions": 0
+    },
+    {
+      "path": ".claude/hooks/session-setup.sh",
+      "status": "modified",
+      "subRepo": ".claude",
+      "additions": 17,
+      "deletions": 0
+    },
+    {
+      "path": ".claude/research/compass-mcp.md",
+      "status": "added",
+      "subRepo": ".claude",
+      "additions": 172,
+      "deletions": 0
+    },
+    {
+      "path": ".claude/skills/fix-precommit/SKILL.md",
+      "status": "added",
+      "subRepo": ".claude",
+      "additions": 58,
+      "deletions": 0
+    },
+    {
+      "path": ".claude/skills/fix-precommit/scripts/parse-output.sh",
+      "status": "added",
+      "subRepo": ".claude",
+      "additions": 60,
+      "deletions": 0
+    },
+    {
+      "path": ".github/workflows/quality-gates.yml",
+      "status": "added",
+      "subRepo": ".github",
+      "additions": 91,
+      "deletions": 0
+    },
+    {
+      "path": ".gitignore",
+      "status": "modified",
+      "subRepo": "(root)",
+      "additions": 3,
+      "deletions": 0
+    },
+    {
+      "path": ".gitmodules",
+      "status": "added",
+      "subRepo": "(root)",
+      "additions": 3,
+      "deletions": 0
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "status": "added",
+      "subRepo": "(root)",
+      "additions": 86,
+      "deletions": 0
+    },
+    {
+      "path": "Makefile",
+      "status": "added",
+      "subRepo": "(root)",
+      "additions": 46,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/.claude/skills/ax-agent-optimize/SKILL.md",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 338,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/.claude/skills/ax-agent/SKILL.md",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 1215,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/.claude/skills/ax-ai/SKILL.md",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 245,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/.claude/skills/ax-flow/SKILL.md",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 402,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/.claude/skills/ax-gen/SKILL.md",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 323,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/.claude/skills/ax-gepa/SKILL.md",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 260,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/.claude/skills/ax-learn/SKILL.md",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 268,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/.claude/skills/ax-signature/SKILL.md",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 192,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/.claude/skills/ax/SKILL.md",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 292,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/__tests__/bullets.test.ts",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 121,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/__tests__/change-detect.test.ts",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 130,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/__tests__/changelog.test.ts",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 104,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/package.json",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 28,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/src/crawlers/changelog.ts",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 143,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/src/extractors/bullets.ts",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 161,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/src/filters/change-detect.ts",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 110,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/src/index.ts",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 70,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/src/storage/neon.ts",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 117,
+      "deletions": 0
+    },
+    {
+      "path": "agentcrawls-ts/tsconfig.json",
+      "status": "added",
+      "subRepo": "agentcrawls-ts",
+      "additions": 21,
+      "deletions": 0
+    },
+    {
+      "path": "claude-channel-dispatch-routing/migrations/008_agentdata_schema.sql",
+      "status": "added",
+      "subRepo": "claude-channel-dispatch-routing",
+      "additions": 106,
+      "deletions": 0
+    },
+    {
+      "path": "claude-multi-agent-sdk/__tests__/memory.test.ts",
+      "status": "added",
+      "subRepo": "claude-multi-agent-sdk",
+      "additions": 113,
+      "deletions": 0
+    },
+    {
+      "path": "claude-multi-agent-sdk/src/mcp/memory.ts",
+      "status": "added",
+      "subRepo": "claude-multi-agent-sdk",
+      "additions": 187,
+      "deletions": 0
+    },
+    {
+      "path": "claude-multi-agent-sdk/src/mcp/server.ts",
+      "status": "modified",
+      "subRepo": "claude-multi-agent-sdk",
+      "additions": 5,
+      "deletions": 0
+    },
+    {
+      "path": "package.json",
+      "status": "modified",
+      "subRepo": "(root)",
+      "additions": 6,
+      "deletions": 0
+    }
+  ]
+}
