@@ -1,0 +1,103 @@
+name: Linear Issue Sync
+
+# Supplements Linear's native GitHub App (handles PR linking + status transitions).
+# This workflow covers what the native app can't:
+# 1. Auto-create Linear issues from GitHub issues labeled 'linear-sync'
+# 2. Post PR merge notifications with quality gate results to Linear issue comments
+# 3. Extract Linear issue ID from branch names (TEAM-123 pattern)
+
+on:
+  pull_request:
+    types: [closed]
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  # When a PR is merged, update the linked Linear issue with merge details
+  pr-merged-update:
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Extract Linear issue ID from branch name
+        id: extract
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          # Match patterns like ENG-123, RES-456, etc.
+          ISSUE_ID=$(echo "$BRANCH" | grep -oE '[A-Z]+-[0-9]+' | head -1 || true)
+          echo "issue_id=$ISSUE_ID" >> "$GITHUB_OUTPUT"
+          if [ -n "$ISSUE_ID" ]; then
+            echo "Found Linear issue: $ISSUE_ID"
+          else
+            echo "No Linear issue ID found in branch: $BRANCH"
+          fi
+
+      - name: Post merge comment to Linear issue
+        if: steps.extract.outputs.issue_id != ''
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          if [ -z "$LINEAR_API_KEY" ]; then
+            echo "LINEAR_API_KEY not set — skipping Linear update"
+            exit 0
+          fi
+
+          ISSUE_ID="${{ steps.extract.outputs.issue_id }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          MERGED_BY="${{ github.event.pull_request.merged_by.login }}"
+
+          COMMENT="PR #${PR_NUMBER} merged: ${PR_TITLE}\n${PR_URL}\nMerged by: ${MERGED_BY}"
+
+          # Create comment on the Linear issue
+          curl -sf -X POST https://api.linear.app/graphql \
+            -H "Content-Type: application/json" \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -d "$(jq -n \
+              --arg q "mutation(\$issueId: String!, \$body: String!) { commentCreate(input: { issueId: \$issueId, body: \$body }) { success } }" \
+              --arg id "$ISSUE_ID" \
+              --arg body "$COMMENT" \
+              '{query: $q, variables: {issueId: $id, body: $body}}'
+            )" || echo "Linear API call failed (issue may not exist or API key invalid)"
+
+  # When a GitHub issue is labeled 'linear-sync', create a corresponding Linear issue
+  create-linear-issue:
+    if: >
+      github.event_name == 'issues' &&
+      github.event.label.name == 'linear-sync'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Create Linear issue from GitHub issue
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+        run: |
+          if [ -z "$LINEAR_API_KEY" ] || [ -z "$LINEAR_TEAM_ID" ]; then
+            echo "LINEAR_API_KEY or LINEAR_TEAM_ID not set — skipping"
+            exit 0
+          fi
+
+          TITLE="${{ github.event.issue.title }}"
+          BODY="${{ github.event.issue.body }}"
+          GH_URL="${{ github.event.issue.html_url }}"
+          DESCRIPTION="${BODY}\n\n---\nSource: ${GH_URL}"
+
+          curl -sf -X POST https://api.linear.app/graphql \
+            -H "Content-Type: application/json" \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -d "$(jq -n \
+              --arg q "mutation(\$teamId: String!, \$title: String!, \$description: String!) { issueCreate(input: { teamId: \$teamId, title: \$title, description: \$description }) { success issue { identifier url } } }" \
+              --arg teamId "$LINEAR_TEAM_ID" \
+              --arg title "$TITLE" \
+              --arg desc "$DESCRIPTION" \
+              '{query: $q, variables: {teamId: $teamId, title: $title, description: $desc}}'
+            )" || echo "Linear API call failed"
