@@ -18,9 +18,9 @@ jobs:
         with:
           submodules: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6.3.0
         with:
-          node-version: '22'
+          node-version-file: '.nvmrc'
           cache: 'npm'
           cache-dependency-path: |
             claude-multi-agent-sdk/package-lock.json
@@ -29,37 +29,8 @@ jobs:
 
       - uses: astral-sh/setup-uv@v4
 
-      - name: Install Python tools
-        run: |
-          uv tool install pre-commit
-          uv tool install radon
+      - name: Setup
+        run: make setup
 
-      - name: Install Node dependencies
-        run: |
-          cd claude-multi-agent-sdk && npm install --legacy-peer-deps --silent
-          cd ../claude-multi-agent-dispatch && npm install --legacy-peer-deps --silent
-          cd ../agentcrawls-ts && npm install --silent
-
-      - name: Run pre-commit (all hooks)
+      - name: Quality gates (pre-commit runs all hooks)
         run: pre-commit run --all-files
-
-      - name: TypeScript type check (SDK)
-        run: cd claude-multi-agent-sdk && npx tsc --noEmit
-
-      - name: TypeScript type check (dispatch)
-        run: cd claude-multi-agent-dispatch && npx tsc --noEmit
-
-      - name: TypeScript type check (agentcrawls-ts)
-        run: cd agentcrawls-ts && npx tsc --noEmit
-
-      - name: Test SDK
-        run: cd claude-multi-agent-sdk && npx vitest run
-
-      - name: Test dispatch
-        run: cd claude-multi-agent-dispatch && npx vitest run
-
-      - name: Test agentcrawls-ts
-        run: cd agentcrawls-ts && npx vitest run
-
-      - name: Python tests
-        run: python3 -m pytest claude-code-agents-python/tests/ -x --tb=short 2>/dev/null || true
