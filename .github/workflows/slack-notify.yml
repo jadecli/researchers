@@ -40,7 +40,7 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Notify Slack — PR merged
-        uses: slackapi/slack-github-action@v2
+        uses: slackapi/slack-github-action@v3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -76,7 +76,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Notify Slack — CI failure
-        uses: slackapi/slack-github-action@v2
+        uses: slackapi/slack-github-action@v3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -105,7 +105,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Notify Slack — quality gates passed on main
-        uses: slackapi/slack-github-action@v2
+        uses: slackapi/slack-github-action@v3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
