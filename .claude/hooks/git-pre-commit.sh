@@ -46,8 +46,10 @@ done
 # ── 3. Return types on Python public functions ───────────────
 for file in $STAGED_PY; do
   [ -f "$ROOT/$file" ] || continue
-  MISSING_PY=$(grep -E '^\s*def\s+[a-zA-Z][a-zA-Z0-9_]*\s*\(' "$ROOT/$file" 2>/dev/null | grep -v '__' | grep -vc ')\s*->' || echo 0)
-  if [ "$MISSING_PY" -gt 0 ]; then
+  TOTAL_FN=$(grep -cE '^\s*def\s+[a-zA-Z][a-zA-Z0-9_]*\s*\(' "$ROOT/$file" 2>/dev/null || echo 0)
+  TYPED_FN=$(grep -cE '^\s*def\s+[a-zA-Z][a-zA-Z0-9_]*\s*\([^)]*\)\s*->' "$ROOT/$file" 2>/dev/null || echo 0)
+  MISSING_PY=$((TOTAL_FN - TYPED_FN))
+  if [ "$MISSING_PY" -gt 0 ] 2>/dev/null; then
     WARNINGS+=("$file: $MISSING_PY public function(s) missing -> return type")
   fi
 done
