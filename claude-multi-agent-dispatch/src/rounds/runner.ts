@@ -7,6 +7,13 @@ import { ContextDeltaAccumulator } from '../refinement/context-delta.js';
 import { scoreOutput } from '../quality/scorer.js';
 import { buildContextDelta } from '../quality/feedback.js';
 import { JSONLWriter } from '../logging/jsonl.js';
+import {
+  CrawlOrchestrator,
+  ANTHROPIC_DOC_TARGETS,
+  type CrawlTarget,
+  type OrchestratedCrawlResult,
+} from '../orchestrator/crawl-orchestrator.js';
+import { CrawlMetricsCollector } from '../orchestrator/crawl-metrics.js';
 
 // ─── AuditStore interface ───────────────────────────────────────────────────
 // Minimal interface for the audit store dependency.
@@ -22,15 +29,18 @@ export class RoundRunner {
   private readonly store: AuditStore;
   private readonly deltaAccumulator: ContextDeltaAccumulator;
   private readonly baseDir: string;
+  private readonly crawlOrchestrator: CrawlOrchestrator | null;
 
   constructor(
     store: AuditStore,
     deltaAccumulator: ContextDeltaAccumulator,
     baseDir: string = 'rounds',
+    crawlOrchestrator?: CrawlOrchestrator,
   ) {
     this.store = store;
     this.deltaAccumulator = deltaAccumulator;
     this.baseDir = baseDir;
+    this.crawlOrchestrator = crawlOrchestrator ?? null;
   }
 
   /**
@@ -164,8 +174,53 @@ export class RoundRunner {
     definition: RoundDefinition,
     contextFragment: string,
   ): Promise<string> {
-    // In a real implementation, this would dispatch to agents.
-    // Here we produce a structured output based on the round definition.
+    // If a CrawlOrchestrator is provided, execute a real orchestrated crawl
+    // instead of returning stub output.
+    if (this.crawlOrchestrator) {
+      const targets = this.selectTargetsForRound(definition);
+      if (targets.length > 0) {
+        const result = await this.crawlOrchestrator.executeCrawl(
+          definition.id as string,
+          targets,
+          definition.goal,
+        );
+
+        if (result.ok) {
+          const crawlResult = result.value;
+          // Log the metrics comparison
+          const metricsCollector = new CrawlMetricsCollector(
+            definition.id as string,
+          );
+          for (const page of crawlResult.pages) {
+            metricsCollector.recordPage(page.metrics);
+          }
+          const comparison = metricsCollector.formatComparison();
+
+          return [
+            `# Round ${definition.number}: ${definition.name}`,
+            '',
+            `## Context`,
+            contextFragment,
+            '',
+            `## Orchestrated Crawl Results`,
+            `- Approach: ${crawlResult.approach}`,
+            `- Pages succeeded: ${crawlResult.succeeded}`,
+            `- Pages failed: ${crawlResult.failed}`,
+            `- Average quality: ${crawlResult.avgQuality.toFixed(3)}`,
+            `- Total content: ${crawlResult.totalContentChars} chars`,
+            `- Duration: ${crawlResult.totalDurationMs}ms`,
+            '',
+            `## Metrics`,
+            comparison,
+            '',
+            `## Extracted Content`,
+            crawlResult.extractedOutput,
+          ].join('\n');
+        }
+      }
+    }
+
+    // Fallback: structured output based on the round definition
     const output = [
       `# Round ${definition.number}: ${definition.name}`,
       '',
@@ -184,6 +239,48 @@ export class RoundRunner {
     ].join('\n');
 
     return output;
+  }
+
+  /**
+   * Select crawl targets relevant to a round definition.
+   * Maps round targetRepos and contextDeltaTemplate to URL targets.
+   */
+  private selectTargetsForRound(definition: RoundDefinition): CrawlTarget[] {
+    const targets: CrawlTarget[] = [];
+    const focusPatterns = (definition.contextDeltaTemplate as any)?.focusPatterns ?? [];
+    const extractionTargets = (definition.contextDeltaTemplate as any)?.extractionTargets ?? [];
+
+    // Match ANTHROPIC_DOC_TARGETS against round's focus patterns
+    for (const target of ANTHROPIC_DOC_TARGETS) {
+      const urlLower = target.url.toLowerCase();
+      const categoryLower = target.category.toLowerCase();
+
+      // Check if any focus pattern matches the URL or category
+      const matchesFocus = focusPatterns.length === 0 || focusPatterns.some((pattern: string) =>
+        urlLower.includes(pattern.toLowerCase()) ||
+        categoryLower.includes(pattern.toLowerCase()),
+      );
+
+      // Check if any extraction target keywords match
+      const matchesExtraction = extractionTargets.length === 0 || extractionTargets.some((et: string) =>
+        et.toLowerCase().split(/\s+/).some((word: string) =>
+          word.length > 4 && (urlLower.includes(word) || categoryLower.includes(word)),
+        ),
+      );
+
+      if (matchesFocus || matchesExtraction) {
+        targets.push(target);
+      }
+    }
+
+    // If no specific matches, return a subset based on priority
+    if (targets.length === 0) {
+      return ANTHROPIC_DOC_TARGETS
+        .filter((t) => t.priority === 'critical' || t.priority === 'high')
+        .slice(0, 10);
+    }
+
+    return targets;
   }
 
   private async scoreQuality(

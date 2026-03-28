@@ -20,3 +20,21 @@ export {
   type DispatchSession,
   SessionStore,
 } from './state.js';
+
+export {
+  CrawlOrchestrator,
+  extractContent,
+  ANTHROPIC_DOC_TARGETS,
+  type CrawlTarget,
+  type CrawlPageOutput,
+  type OrchestratedCrawlResult,
+  type CrawlOrchestratorConfig,
+} from './crawl-orchestrator.js';
+
+export {
+  CrawlMetricsCollector,
+  type PageMetrics,
+  type CrawlApproach,
+  type ApproachSummary,
+  type RoundMetrics,
+} from './crawl-metrics.js';
