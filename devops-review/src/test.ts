@@ -8,8 +8,15 @@ import { loadTeamDecisions, inferChecksFromDiff, generatePRReviewXML } from './x
 import { reviewPR, buildMultiPROutput } from './review-engine.js';
 import { toCoworkDeliverable } from './orchestrator.js';
 import { getConnectorsForSurface, DEVOPS_CONNECTORS } from './connectors.js';
-import { toPRNumber } from './types.js';
-import type { PRReviewInput, TypedCheck } from './types.js';
+import { CheckDeduplicator, deduplicateAcrossPRs } from './bloom-dedup.js';
+import {
+  classifyRisk, classifyScope, classifyUrgency,
+  generateContextDelta, ReviewImprovementChain,
+  extractTypedReviewSummary,
+  PRRiskLevel, ChangeScope, ReviewUrgency,
+} from './programmatic-review.js';
+import { toPRNumber, toCheckId, toDecisionId } from './types.js';
+import type { PRReviewInput, TypedCheck, CheckFinding, DiffSummary } from './types.js';
 
 let passed = 0;
 let failed = 0;
@@ -199,6 +206,133 @@ const withSlack = getConnectorsForSurface('claude-cowork', ['Slack']);
 assert(withSlack.length === 2, 'Cowork + Slack: 2 connectors');
 const withAll = getConnectorsForSurface('claude-cowork', ['Slack', 'Linear', 'Vercel', 'Supabase']);
 assert(withAll.length === 5, 'All connectors enabled: 5');
+
+// ── Test 14: BloomFilter check deduplication ───────────────
+console.log('\n14. BloomFilter Check Deduplication');
+const dedup = new CheckDeduplicator({ filterSize: 1_000 });
+const finding1: CheckFinding = {
+  checkId: toCheckId('CHK-BRANDED'),
+  decisionId: toDecisionId('TD-001'),
+  result: 'fail',
+  severity: 'warning',
+  message: 'Missing branded types',
+};
+const finding2: CheckFinding = {
+  checkId: toCheckId('CHK-STRICT'),
+  decisionId: toDecisionId('TD-004'),
+  result: 'fail',
+  severity: 'blocker',
+  message: 'any type detected',
+};
+assert(!dedup.isSeen(finding1), 'Finding 1 not seen initially');
+dedup.markSeen(finding1);
+assert(dedup.isSeen(finding1), 'Finding 1 seen after marking');
+assert(!dedup.isSeen(finding2), 'Finding 2 still unseen');
+
+// Dedup array
+const dedupResult = dedup.dedup([finding1, finding2, finding1]);
+assert(dedupResult.length === 1, `Dedup returns 1 novel finding (got ${dedupResult.length})`);
+assert(dedupResult[0]!.checkId === 'CHK-STRICT', 'Novel finding is CHK-STRICT');
+assert(dedup.stats().duplicatesFiltered === 2, `2 duplicates filtered (got ${dedup.stats().duplicatesFiltered})`);
+
+// ── Test 15: Multi-PR deduplication ────────────────────────
+console.log('\n15. Multi-PR BloomFilter Deduplication');
+const findingsMap = new Map<ReturnType<typeof toPRNumber>, ReadonlyArray<CheckFinding>>();
+findingsMap.set(toPRNumber(7), [finding1, finding2]);
+findingsMap.set(toPRNumber(8), [finding1, finding2]); // Same findings in PR #8
+const multiDedup = deduplicateAcrossPRs(findingsMap);
+const pr7Deduped = multiDedup.dedupedPerPR.get(toPRNumber(7))!;
+const pr8Deduped = multiDedup.dedupedPerPR.get(toPRNumber(8))!;
+assert(pr7Deduped.length === 2, `PR #7: 2 novel findings (got ${pr7Deduped.length})`);
+assert(pr8Deduped.length === 0, `PR #8: 0 novel findings — all deduped (got ${pr8Deduped.length})`);
+assert(multiDedup.stats.duplicatesFiltered === 2, `2 total duplicates across PRs`);
+
+// ── Test 16: Risk classification (BAML-style enum) ─────────
+console.log('\n16. BAML-style Risk Classification');
+const noFindings: CheckFinding[] = [];
+const warningFindings: CheckFinding[] = [
+  { ...finding1, severity: 'warning', result: 'fail' },
+];
+const blockerFindings: CheckFinding[] = [
+  { ...finding2, severity: 'blocker', result: 'fail' },
+];
+const criticalFindings: CheckFinding[] = [
+  { ...finding2, severity: 'blocker', result: 'fail' },
+  { checkId: toCheckId('CHK-2'), decisionId: toDecisionId('TD-002'), result: 'fail', severity: 'blocker', message: 'b2' },
+  { checkId: toCheckId('CHK-3'), decisionId: toDecisionId('TD-003'), result: 'fail', severity: 'blocker', message: 'b3' },
+];
+assert(classifyRisk(noFindings) === PRRiskLevel.TRIVIAL, 'No findings → TRIVIAL');
+assert(classifyRisk(warningFindings) === PRRiskLevel.LOW, '1 warning → LOW');
+assert(classifyRisk(blockerFindings) === PRRiskLevel.HIGH, '1 blocker → HIGH');
+assert(classifyRisk(criticalFindings) === PRRiskLevel.CRITICAL, '3 blockers → CRITICAL');
+
+// ── Test 17: Scope classification (BAML-style enum) ────────
+console.log('\n17. BAML-style Scope Classification');
+const testOnlyDiff: DiffSummary = {
+  filesChanged: 1, additions: 50, deletions: 0, affectedRepos: [],
+  files: [{ path: 'src/test.spec.ts', status: 'added', additions: 50, deletions: 0 }],
+};
+const sqlDiff: DiffSummary = {
+  filesChanged: 1, additions: 30, deletions: 0, affectedRepos: [],
+  files: [{ path: 'migrations/007_new.sql', status: 'added', additions: 30, deletions: 0 }],
+};
+const docsDiff: DiffSummary = {
+  filesChanged: 1, additions: 10, deletions: 5, affectedRepos: [],
+  files: [{ path: 'README.md', status: 'modified', additions: 10, deletions: 5 }],
+};
+assert(classifyScope(testOnlyDiff) === ChangeScope.TESTS_ONLY, 'Test files → TESTS_ONLY');
+assert(classifyScope(sqlDiff) === ChangeScope.DATA_MODEL, 'SQL migration → DATA_MODEL');
+assert(classifyScope(docsDiff) === ChangeScope.DOCUMENTATION, 'Markdown → DOCUMENTATION');
+
+// ── Test 18: Urgency classification ────────────────────────
+console.log('\n18. Urgency Classification');
+assert(classifyUrgency(PRRiskLevel.CRITICAL, ChangeScope.API_SURFACE) === ReviewUrgency.IMMEDIATE, 'CRITICAL → IMMEDIATE');
+assert(classifyUrgency(PRRiskLevel.HIGH, ChangeScope.BUSINESS_LOGIC) === ReviewUrgency.SAME_DAY, 'HIGH + business → SAME_DAY');
+assert(classifyUrgency(PRRiskLevel.HIGH, ChangeScope.TESTS_ONLY) === ReviewUrgency.INFORMATIONAL, 'HIGH + tests → INFORMATIONAL');
+assert(classifyUrgency(PRRiskLevel.MEDIUM, ChangeScope.ARCHITECTURE) === ReviewUrgency.NEXT_SPRINT, 'MEDIUM → NEXT_SPRINT');
+
+// ── Test 19: Context delta generation (DSPy pattern) ───────
+console.log('\n19. DSPy-style Context Delta');
+const round1Findings: CheckFinding[] = [
+  { checkId: toCheckId('CHK-A'), decisionId: toDecisionId('TD-001'), result: 'fail', severity: 'warning', message: 'a' },
+  { checkId: toCheckId('CHK-B'), decisionId: toDecisionId('TD-002'), result: 'fail', severity: 'blocker', message: 'b' },
+];
+const round2Findings: CheckFinding[] = [
+  { checkId: toCheckId('CHK-B'), decisionId: toDecisionId('TD-002'), result: 'fail', severity: 'blocker', message: 'b' },
+  { checkId: toCheckId('CHK-C'), decisionId: toDecisionId('TD-003'), result: 'fail', severity: 'warning', message: 'c' },
+];
+const delta = generateContextDelta(2, round2Findings, round1Findings);
+assert(delta.round === 2, 'Delta round is 2');
+assert(delta.newPatterns.length === 1, `1 new pattern (got ${delta.newPatterns.length})`);
+assert(delta.newPatterns[0] === 'CHK-C', 'New pattern is CHK-C');
+assert(delta.recurringViolations.length === 1, `1 recurring (got ${delta.recurringViolations.length})`);
+assert(delta.recurringViolations[0] === 'CHK-B', 'Recurring is CHK-B');
+assert(delta.resolvedViolations.length === 1, `1 resolved (got ${delta.resolvedViolations.length})`);
+assert(delta.resolvedViolations[0] === 'CHK-A', 'Resolved is CHK-A');
+assert(delta.qualityTrajectory === 'stable', 'Quality stable (2 fails → 2 fails)');
+
+// ── Test 20: Improvement chain convergence ─────────────────
+console.log('\n20. DSPy-style Improvement Chain');
+const chain = new ReviewImprovementChain(0);
+assert(!chain.hasConverged(), 'Not converged initially');
+chain.addDelta(delta);
+assert(!chain.hasConverged(), 'Not converged with 1 delta');
+const convergentDelta = generateContextDelta(3, [], round2Findings);
+chain.addDelta(convergentDelta);
+assert(chain.hasConverged(), 'Converged when no new patterns and not degrading');
+assert(chain.getChain().length === 2, '2 deltas in chain');
+assert(chain.getLatestSteer().length > 0, 'Has steering direction');
+const jsonl = chain.toJSONL();
+assert(jsonl.includes('"event":"review_delta"'), 'JSONL output has event field');
+
+// ── Test 21: Typed review summary (BAML-style output) ──────
+console.log('\n21. BAML-style Typed Review Summary');
+const typedSummary = extractTypedReviewSummary(changesOutput, diffSummary);
+assert(typedSummary.prNumber === 7, 'Summary has PR number');
+assert(typedSummary.riskLevel === PRRiskLevel.HIGH || typedSummary.riskLevel === PRRiskLevel.CRITICAL, 'Risk classified');
+assert(Object.values(ChangeScope).includes(typedSummary.changeScope), 'Scope classified');
+assert(Object.values(ReviewUrgency).includes(typedSummary.urgency), 'Urgency classified');
+assert(typedSummary.verdict === 'request-changes', 'Verdict preserved');
 
 // ── Summary ─────────────────────────────────────────────────
 console.log('\n' + '='.repeat(50));
