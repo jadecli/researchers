@@ -1,7 +1,7 @@
 name: Release Drafter
 
 # Automatically drafts release notes as PRs are merged.
-# Uses release-drafter/release-drafter@v6 (v6.1.0, verified creator).
+# Uses release-drafter/release-drafter@v7 (v7.1.1, verified creator).
 # Config: .github/release-drafter.yml
 
 on:
@@ -22,6 +22,6 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: release-drafter/release-drafter@v6
+      - uses: release-drafter/release-drafter@v7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
