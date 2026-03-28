@@ -120,14 +120,15 @@ class BloomDupeFilter(BaseDupeFilter):
         fp = self.request_fingerprint(request)
         self._requests_seen += 1
 
-        if fp in self.bloom:
+        # add() returns True if item was already possibly present,
+        # so we use it directly instead of a separate __contains__ + add
+        was_seen = self.bloom.add(fp)
+        if was_seen:
             self._dupes_found += 1
             if self.debug:
                 logger.debug("Filtered duplicate request: %s", request.url)
-            return True
 
-        self.bloom.add(fp)
-        return False
+        return was_seen
 
     def request_fingerprint(self, request: Request) -> str:
         """Generate a fingerprint for the request.

@@ -163,8 +163,11 @@ class BloomFilter:
             )
         for i in range(len(self._bit_array)):
             self._bit_array[i] |= other._bit_array[i]
-        # Count is approximate after merge
-        self._count = max(self._count, other._count)
+        # Estimate merged count: union of two independent sets.
+        # Using inclusion-exclusion: |A ∪ B| ≈ |A| + |B| - |A ∩ B|.
+        # Upper bound (no overlap) is sum; lower bound (full overlap) is max.
+        # We use the sum capped at expected_items since we can't know overlap.
+        self._count = min(self._count + other._count, self.expected_items)
 
     def __repr__(self) -> str:
         return (

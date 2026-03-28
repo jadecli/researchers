@@ -54,9 +54,10 @@ class BaseResearchSpider(scrapy.Spider):
         # Subclasses that set `name` as a class attribute will match correctly.
         profile = get_bloom_profile(getattr(cls, "name", ""))
         bloom_settings = profile.to_scrapy_settings(getattr(cls, "name", "default"))
+        # Only set bloom keys that the spider hasn't explicitly overridden
+        spider_overrides = cls.custom_settings or {}
         for key, value in bloom_settings.items():
-            # Only set if not already overridden by spider's custom_settings
-            if settings.get(key) is None or key not in (cls.custom_settings or {}):
+            if key not in spider_overrides:
                 settings.set(key, value, priority="spider")
 
     def on_page_crawled(self, item: dict[str, Any], response: Response) -> dict[str, Any]:

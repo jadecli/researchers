@@ -134,9 +134,11 @@ class DedupPipeline:
         settings = spider.crawler.settings
         expected = settings.getint("BLOOM_DEDUP_EXPECTED_ITEMS", 100_000)
         fp_rate = settings.getfloat("BLOOM_DEDUP_FP_RATE", 0.001)
+        # Use spider name in fallback path to prevent cross-spider collisions
+        default_path = f"scrapy_researchers/.bloomstate/{spider.name}_dedup.bloom"
         self.persist_path = settings.get(
             "BLOOM_DEDUP_PERSIST_PATH",
-            "scrapy_researchers/.bloomstate/dedup.bloom",
+            default_path,
         )
 
         if Path(self.persist_path).exists():
