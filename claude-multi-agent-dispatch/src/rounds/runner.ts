@@ -7,6 +7,15 @@ import { ContextDeltaAccumulator } from '../refinement/context-delta.js';
 import { scoreOutput } from '../quality/scorer.js';
 import { buildContextDelta } from '../quality/feedback.js';
 import { JSONLWriter } from '../logging/jsonl.js';
+import {
+  CrawlOrchestrator,
+  ANTHROPIC_DOC_TARGETS,
+  selectTargetsForSurface,
+  type CrawlTarget,
+  type OrchestratedCrawlResult,
+} from '../orchestrator/crawl-orchestrator.js';
+import { CrawlMetricsCollector } from '../orchestrator/crawl-metrics.js';
+import { ALL_SURFACES, type DocSurface } from '../../../.jade/surfaces/doc-surface.js';
 
 // ─── AuditStore interface ───────────────────────────────────────────────────
 // Minimal interface for the audit store dependency.
@@ -22,15 +31,18 @@ export class RoundRunner {
   private readonly store: AuditStore;
   private readonly deltaAccumulator: ContextDeltaAccumulator;
   private readonly baseDir: string;
+  private readonly crawlOrchestrator: CrawlOrchestrator | null;
 
   constructor(
     store: AuditStore,
     deltaAccumulator: ContextDeltaAccumulator,
     baseDir: string = 'rounds',
+    crawlOrchestrator?: CrawlOrchestrator,
   ) {
     this.store = store;
     this.deltaAccumulator = deltaAccumulator;
     this.baseDir = baseDir;
+    this.crawlOrchestrator = crawlOrchestrator ?? null;
   }
 
   /**
@@ -164,8 +176,53 @@ export class RoundRunner {
     definition: RoundDefinition,
     contextFragment: string,
   ): Promise<string> {
-    // In a real implementation, this would dispatch to agents.
-    // Here we produce a structured output based on the round definition.
+    // If a CrawlOrchestrator is provided, execute a real orchestrated crawl
+    // instead of returning stub output.
+    if (this.crawlOrchestrator) {
+      const targets = this.selectTargetsForRound(definition);
+      if (targets.length > 0) {
+        const result = await this.crawlOrchestrator.executeCrawl(
+          definition.id as string,
+          targets,
+          definition.goal,
+        );
+
+        if (result.ok) {
+          const crawlResult = result.value;
+          // Log the metrics comparison
+          const metricsCollector = new CrawlMetricsCollector(
+            definition.id as string,
+          );
+          for (const page of crawlResult.pages) {
+            metricsCollector.recordPage(page.metrics);
+          }
+          const comparison = metricsCollector.formatComparison();
+
+          return [
+            `# Round ${definition.number}: ${definition.name}`,
+            '',
+            `## Context`,
+            contextFragment,
+            '',
+            `## Orchestrated Crawl Results`,
+            `- Approach: ${crawlResult.approach}`,
+            `- Pages succeeded: ${crawlResult.succeeded}`,
+            `- Pages failed: ${crawlResult.failed}`,
+            `- Average quality: ${crawlResult.avgQuality.toFixed(3)}`,
+            `- Total content: ${crawlResult.totalContentChars} chars`,
+            `- Duration: ${crawlResult.totalDurationMs}ms`,
+            '',
+            `## Metrics`,
+            comparison,
+            '',
+            `## Extracted Content`,
+            crawlResult.extractedOutput,
+          ].join('\n');
+        }
+      }
+    }
+
+    // Fallback: structured output based on the round definition
     const output = [
       `# Round ${definition.number}: ${definition.name}`,
       '',
@@ -184,6 +241,49 @@ export class RoundRunner {
     ].join('\n');
 
     return output;
+  }
+
+  /**
+   * Select crawl targets relevant to a round definition.
+   * Uses .jade decision tree: maps round goal keywords to surfaces,
+   * then selects targets for those surfaces via selectTargetsForSurface().
+   */
+  private selectTargetsForRound(definition: RoundDefinition): CrawlTarget[] {
+    const goalLower = definition.goal.toLowerCase();
+
+    // Map goal keywords to .jade surfaces
+    const matchedSurfaces: DocSurface[] = [];
+    const surfaceKeywords: Record<DocSurface, readonly string[]> = {
+      'capabilities': ['capability', 'thinking', 'vision', 'streaming', 'batch', 'pdf', 'embed'],
+      'tools': ['tool', 'define', 'handle', 'parallel', 'strict', 'server tool'],
+      'tool-reference': ['web search', 'web fetch', 'bash', 'computer use', 'text editor', 'memory tool', 'code execution'],
+      'tool-infrastructure': ['tool context', 'tool combination', 'tool search', 'programmatic', 'fine-grained'],
+      'context-management': ['context', 'caching', 'compaction', 'token count'],
+      'files-assets': ['file', 'asset', 'upload'],
+      'agent-skills': ['skill', 'agent skill', 'enterprise'],
+    };
+
+    for (const surface of ALL_SURFACES) {
+      const keywords = surfaceKeywords[surface];
+      if (keywords.some((kw) => goalLower.includes(kw))) {
+        matchedSurfaces.push(surface);
+      }
+    }
+
+    // Collect targets from matched surfaces via .jade decision tree
+    const targets: CrawlTarget[] = [];
+    for (const surface of matchedSurfaces) {
+      targets.push(...selectTargetsForSurface(surface));
+    }
+
+    // Fallback: critical + high priority targets
+    if (targets.length === 0) {
+      return ANTHROPIC_DOC_TARGETS
+        .filter((t) => t.priority === 'critical' || t.priority === 'high')
+        .slice(0, 10);
+    }
+
+    return targets;
   }
 
   private async scoreQuality(

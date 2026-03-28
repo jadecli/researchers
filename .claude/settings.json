@@ -9,6 +9,15 @@
             "timeout": 30000
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .jade/hooks/session-start.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -22,6 +31,28 @@
             "type": "command",
             "command": ".claude/hooks/capture-prompt.sh",
             "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .jade/hooks/pre-commit.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash(gh pr create*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .jade/hooks/pre-pr.sh"
           }
         ]
       }

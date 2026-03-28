@@ -1,0 +1,78 @@
+# fact_quality_check.yml — Cube semantic layer for quality check fact table
+# SQL source: ../migrations/009_fact_quality_check.sql
+# Grain: one quality evaluation of one crawled document
+
+cubes:
+  - name: fact_quality_check
+    sql_table: fact_quality_check
+    description: >
+      Quality evaluation fact table. Scores are semi-additive
+      (average across dimensions, do not sum).
+
+    joins:
+      - name: dim_date
+        sql: "{CUBE}.date_key = {dim_date.date_key}"
+        relationship: many_to_one
+
+      - name: dim_time_of_day
+        sql: "{CUBE}.time_key = {dim_time_of_day.time_key}"
+        relationship: many_to_one
+
+      - name: dim_doc_surface
+        sql: "{CUBE}.doc_surface_key = {dim_doc_surface.doc_surface_key}"
+        relationship: many_to_one
+
+      - name: dim_agent
+        sql: "{CUBE}.agent_key = {dim_agent.agent_key}"
+        relationship: many_to_one
+
+      - name: fact_crawl_event
+        sql: "{CUBE}.crawl_event_id = {fact_crawl_event.crawl_event_id}"
+        relationship: many_to_one
+
+    dimensions:
+      - name: quality_check_id
+        sql: quality_check_id
+        type: number
+        primary_key: true
+
+      - name: is_stale
+        sql: is_stale
+        type: boolean
+
+      - name: evaluated_ts
+        sql: evaluated_ts
+        type: time
+
+    measures:
+      - name: total_checks
+        type: count
+
+      - name: stale_count
+        type: count
+        filters:
+          - sql: "{CUBE}.is_stale = TRUE"
+
+      - name: avg_completeness
+        type: avg
+        sql: completeness_score
+
+      - name: avg_freshness
+        type: avg
+        sql: freshness_score
+
+      - name: avg_structural
+        type: avg
+        sql: structural_score
+
+      - name: avg_overall
+        type: avg
+        sql: overall_score
+
+      - name: total_sections_missing
+        type: sum
+        sql: sections_missing
+
+      - name: total_sections_found
+        type: sum
+        sql: sections_found

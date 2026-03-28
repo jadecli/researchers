@@ -1,0 +1,55 @@
+# dim_date.yml — Cube semantic layer for Kimball date dimension
+# SQL source: ../migrations/002_dim_date.sql
+
+cubes:
+  - name: dim_date
+    sql_table: dim_date
+    description: >
+      Kimball conformed date dimension. One row per calendar date.
+      Shared across all fact tables via date_key foreign key.
+
+    dimensions:
+      - name: date_key
+        sql: date_key
+        type: number
+        primary_key: true
+
+      - name: full_date
+        sql: full_date
+        type: time
+
+      - name: day_name
+        sql: TRIM(day_name)
+        type: string
+
+      - name: day_of_week
+        sql: day_of_week
+        type: number
+
+      - name: month
+        sql: month
+        type: number
+
+      - name: month_name
+        sql: TRIM(month_name)
+        type: string
+
+      - name: quarter
+        sql: quarter
+        type: number
+
+      - name: year
+        sql: year
+        type: number
+
+      - name: is_weekend
+        sql: is_weekend
+        type: boolean
+
+      - name: iso_week
+        sql: iso_week
+        type: number
+
+    measures:
+      - name: count
+        type: count

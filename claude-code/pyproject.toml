@@ -24,8 +24,7 @@ dependencies = [
     "scrapy-magicfields",
     "itemadapter",
     "spidermon",
-    # Bloom filter uses stdlib hashlib (SHA256 double-hashing).
-    # No external bloom filter library needed — pure Python implementation.
+    "rbloom>=1.5",
 ]
 
 [project.optional-dependencies]
