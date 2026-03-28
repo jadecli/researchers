@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # .claude/hooks/session-setup.sh — SessionStart hook
-# Validates environment and emits session stream event on start.
+# Validates environment, emits session stream event, and auto-installs deps.
 # Captures surface, device, agent metadata for agentstreams pipeline.
 # NEVER blocks (always exits 0). Prints warnings only.
 
@@ -48,14 +48,37 @@ else
   STATUS+=("WARNING: node not found. Install Node.js >= 20")
 fi
 
-# ── agenttasks dependencies ────────────────────────────────────
+# ── agenttasks dependencies (auto-install in cloud) ────────────
 if [ -d "$ROOT/agenttasks/node_modules" ]; then
   STATUS+=("agenttasks/node_modules: present")
 else
-  STATUS+=("WARNING: agenttasks/node_modules missing. Run: cd agenttasks && npm install")
+  # Auto-install in cloud environments (non-interactive)
+  if [ -f "$ROOT/agenttasks/package.json" ] && command -v npm >/dev/null 2>&1; then
+    STATUS+=("agenttasks/node_modules missing — auto-installing...")
+    if (cd "$ROOT/agenttasks" && npm install --no-audit --no-fund --loglevel=error 2>&1 | tail -3); then
+      STATUS+=("agenttasks/node_modules: installed")
+    else
+      STATUS+=("WARNING: agenttasks npm install failed. Run manually: cd agenttasks && npm install")
+    fi
+  else
+    STATUS+=("WARNING: agenttasks/node_modules missing. Run: cd agenttasks && npm install")
+  fi
 fi
 
-# ── Quick TypeScript check (only if node available) ────────────
+# ── Git pre-commit hook (install if missing) ───────────────────
+PRECOMMIT_HOOK="$ROOT/.git/hooks/pre-commit"
+PRECOMMIT_SOURCE="$ROOT/.claude/hooks/git-pre-commit.sh"
+if [ -f "$PRECOMMIT_SOURCE" ] && [ ! -f "$PRECOMMIT_HOOK" ]; then
+  cp "$PRECOMMIT_SOURCE" "$PRECOMMIT_HOOK"
+  chmod +x "$PRECOMMIT_HOOK"
+  STATUS+=("git pre-commit hook: installed")
+elif [ -f "$PRECOMMIT_HOOK" ]; then
+  STATUS+=("git pre-commit hook: present")
+else
+  STATUS+=("git pre-commit hook: source not found (expected $PRECOMMIT_SOURCE)")
+fi
+
+# ── Quick TypeScript check (only if deps available) ────────────
 if [ -d "$ROOT/agenttasks/node_modules" ] && command -v npx >/dev/null 2>&1; then
   if (cd "$ROOT/agenttasks" && npx tsc --noEmit 2>/dev/null); then
     STATUS+=("agenttasks TypeScript: clean")

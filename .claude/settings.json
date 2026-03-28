@@ -6,7 +6,19 @@
           {
             "type": "command",
             "command": ".claude/hooks/session-setup.sh",
-            "timeout": 30000
+            "timeout": 60000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/validate-commit.sh",
+            "timeout": 10000
           }
         ]
       },
