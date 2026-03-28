@@ -1,0 +1,87 @@
+# fact_dispatch.yml — Cube semantic layer for dispatch fact table
+# SQL source: ../migrations/008_fact_dispatch.sql
+# Grain: one dispatch decision for one task to one agent
+
+cubes:
+  - name: fact_dispatch
+    sql_table: fact_dispatch
+    description: >
+      Dispatch decision fact table. Tracks model routing tier and
+      token usage for cost analysis across haiku/sonnet/opus tiers.
+
+    joins:
+      - name: dim_date
+        sql: "{CUBE}.date_key = {dim_date.date_key}"
+        relationship: many_to_one
+
+      - name: dim_time_of_day
+        sql: "{CUBE}.time_key = {dim_time_of_day.time_key}"
+        relationship: many_to_one
+
+      - name: dim_doc_surface
+        sql: "{CUBE}.doc_surface_key = {dim_doc_surface.doc_surface_key}"
+        relationship: many_to_one
+
+      - name: dim_agent
+        sql: "{CUBE}.agent_key = {dim_agent.agent_key}"
+        relationship: many_to_one
+
+      - name: dim_crawl_config
+        sql: "{CUBE}.crawl_config_key = {dim_crawl_config.crawl_config_key}"
+        relationship: many_to_one
+
+    dimensions:
+      - name: dispatch_id
+        sql: dispatch_id
+        type: number
+        primary_key: true
+
+      - name: dispatch_run_id
+        sql: dispatch_run_id
+        type: string
+
+      - name: dispatch_outcome
+        sql: dispatch_outcome
+        type: string
+
+      - name: model_tier_used
+        sql: model_tier_used
+        type: string
+
+      - name: priority
+        sql: priority
+        type: number
+
+      - name: dispatch_ts
+        sql: dispatch_ts
+        type: time
+
+    measures:
+      - name: total_dispatches
+        type: count
+
+      - name: assigned_count
+        type: count
+        filters:
+          - sql: "{CUBE}.dispatch_outcome = 'assigned'"
+
+      - name: rejected_count
+        type: count
+        filters:
+          - sql: "{CUBE}.dispatch_outcome = 'rejected'"
+
+      - name: avg_queue_wait_ms
+        type: avg
+        sql: queue_wait_ms
+
+      - name: total_input_tokens
+        type: sum
+        sql: input_tokens
+
+      - name: total_output_tokens
+        type: sum
+        sql: output_tokens
+
+      - name: assignment_rate
+        type: number
+        sql: "100.0 * {assigned_count} / NULLIF({total_dispatches}, 0)"

@@ -1,0 +1,44 @@
+# dim_agent.yml — Cube semantic layer for agent dimension
+# SQL source: ../migrations/005_dim_agent.sql
+
+cubes:
+  - name: dim_agent
+    sql_table: dim_agent
+    description: >
+      Conformed agent dimension. Tracks Scrapy spiders, Crawlee crawlers,
+      LLM sub-agents, and orchestrator processes with model routing tier.
+
+    dimensions:
+      - name: agent_key
+        sql: agent_key
+        type: number
+        primary_key: true
+
+      - name: agent_id
+        sql: agent_id
+        type: string
+
+      - name: agent_type
+        sql: agent_type
+        type: string
+
+      - name: agent_version
+        sql: agent_version
+        type: string
+
+      - name: model_name
+        sql: model_name
+        type: string
+
+      - name: model_routing_tier
+        sql: model_routing_tier
+        type: string
+        description: "Cost tier: haiku (cheap/fast), sonnet (balanced), opus (expensive/powerful)"
+
+      - name: concurrency_limit
+        sql: concurrency_limit
+        type: number
+
+    measures:
+      - name: count
+        type: count

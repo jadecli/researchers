@@ -1,0 +1,39 @@
+# dim_time.yml — Cube semantic layer for Kimball time-of-day dimension
+# SQL source: ../migrations/003_dim_time.sql
+
+cubes:
+  - name: dim_time_of_day
+    sql_table: dim_time_of_day
+    description: >
+      Kimball conformed time-of-day dimension. 1440 rows (one per minute).
+      Enables sub-day drill-down on all fact tables.
+
+    dimensions:
+      - name: time_key
+        sql: time_key
+        type: number
+        primary_key: true
+
+      - name: clock_time
+        sql: clock_time
+        type: string
+
+      - name: hour_24
+        sql: hour_24
+        type: number
+
+      - name: minute
+        sql: minute
+        type: number
+
+      - name: am_pm
+        sql: am_pm
+        type: string
+
+      - name: day_period
+        sql: day_period
+        type: string
+
+    measures:
+      - name: count
+        type: count

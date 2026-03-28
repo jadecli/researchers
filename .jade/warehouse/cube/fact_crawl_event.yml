@@ -1,0 +1,123 @@
+# fact_crawl_event.yml — Cube semantic layer for crawl event fact table
+# SQL source: ../migrations/007_fact_crawl_event.sql
+# Grain: one crawl attempt of one page by one agent at one instant
+
+cubes:
+  - name: fact_crawl_event
+    sql_table: fact_crawl_event
+    description: >
+      Crawl event fact table. Each row is one crawl attempt.
+      Joins to all five conformed dimensions via Kimball star schema.
+
+    joins:
+      - name: dim_date
+        sql: "{CUBE}.date_key = {dim_date.date_key}"
+        relationship: many_to_one
+
+      - name: dim_time_of_day
+        sql: "{CUBE}.time_key = {dim_time_of_day.time_key}"
+        relationship: many_to_one
+
+      - name: dim_doc_surface
+        sql: "{CUBE}.doc_surface_key = {dim_doc_surface.doc_surface_key}"
+        relationship: many_to_one
+
+      - name: dim_agent
+        sql: "{CUBE}.agent_key = {dim_agent.agent_key}"
+        relationship: many_to_one
+
+      - name: dim_crawl_config
+        sql: "{CUBE}.crawl_config_key = {dim_crawl_config.crawl_config_key}"
+        relationship: many_to_one
+
+    dimensions:
+      - name: crawl_event_id
+        sql: crawl_event_id
+        type: number
+        primary_key: true
+
+      - name: crawl_run_id
+        sql: crawl_run_id
+        type: string
+
+      - name: is_success
+        sql: is_success
+        type: boolean
+
+      - name: bloom_filter_hit
+        sql: bloom_filter_hit
+        type: boolean
+
+      - name: error_class
+        sql: error_class
+        type: string
+
+      - name: crawl_ts
+        sql: crawl_ts
+        type: time
+
+    measures:
+      - name: total_crawls
+        type: count
+
+      - name: successful_crawls
+        type: count
+        filters:
+          - sql: "{CUBE}.is_success = TRUE"
+
+      - name: failed_crawls
+        type: count
+        filters:
+          - sql: "{CUBE}.is_success = FALSE"
+
+      - name: bloom_deduped
+        type: count
+        filters:
+          - sql: "{CUBE}.bloom_filter_hit = TRUE"
+        description: "Crawls skipped by bloom filter (already seen)"
+
+      - name: total_bytes
+        type: sum
+        sql: response_bytes
+
+      - name: avg_response_bytes
+        type: avg
+        sql: response_bytes
+
+      - name: total_elapsed_ms
+        type: sum
+        sql: elapsed_ms
+
+      - name: avg_elapsed_ms
+        type: avg
+        sql: elapsed_ms
+
+      - name: total_items_extracted
+        type: sum
+        sql: items_extracted
+
+      - name: total_links_discovered
+        type: sum
+        sql: links_discovered
+
+      - name: total_retries
+        type: sum
+        sql: retry_count
+
+      - name: success_rate
+        type: number
+        sql: "100.0 * {successful_crawls} / NULLIF({total_crawls}, 0)"
+
+    pre_aggregations:
+      - name: daily_by_surface
+        measures:
+          - total_crawls
+          - successful_crawls
+          - failed_crawls
+          - bloom_deduped
+          - total_bytes
+          - avg_elapsed_ms
+        time_dimension: crawl_ts
+        granularity: day
+        refresh_key:
+          every: 1 hour

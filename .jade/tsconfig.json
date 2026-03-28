@@ -19,5 +19,5 @@
     "rootDir": "."
   },
   "include": ["models/**/*.ts", "surfaces/**/*.ts", "agents/**/*.ts", "schemas/**/*.ts"],
-  "exclude": ["__tests__/**"]
+  "exclude": ["__tests__/**", "warehouse/**", "crawlers/**"]
 }

@@ -7,6 +7,7 @@ Key properties:
 - No false negatives: if it says "not seen", it truly hasn't been seen
 - Rare false positives: configurable via expected_items and fp_rate
 - Persistent: save/load to disk for cross-run deduplication
+- Scrapy integration: BloomDupeFilter replaces RFPDupeFilter with optional Neon Postgres persistence
 
 Spider-specific profiles:
 - platform/claude_com: conservative FP rate, smaller capacity (doc sites)
@@ -24,6 +25,10 @@ import struct
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from scrapy.dupefilters import BaseDupeFilter
+from scrapy.http import Request
+from scrapy.utils.request import fingerprint
 
 
 class BloomFilter:
@@ -163,11 +168,29 @@ class BloomFilter:
             )
         for i in range(len(self._bit_array)):
             self._bit_array[i] |= other._bit_array[i]
-        # Estimate merged count: union of two independent sets.
-        # Using inclusion-exclusion: |A ∪ B| ≈ |A| + |B| - |A ∩ B|.
-        # Upper bound (no overlap) is sum; lower bound (full overlap) is max.
-        # We use the sum capped at expected_items since we can't know overlap.
         self._count = min(self._count + other._count, self.expected_items)
+
+    def serialize(self) -> bytes:
+        """Serialize filter to bytes for Neon Postgres persistence."""
+        return bytes(self._bit_array)
+
+    @classmethod
+    def deserialize(
+        cls,
+        data: bytes,
+        expected_items: int,
+        fp_rate: float,
+        item_count: int,
+    ) -> BloomFilter:
+        """Restore filter from serialized bytes."""
+        bf = cls.__new__(cls)
+        bf.expected_items = expected_items
+        bf.fp_rate = fp_rate
+        bf.num_bits = len(data) * 8
+        bf.num_hashes = cls._optimal_num_hashes(bf.num_bits, expected_items)
+        bf._bit_array = bytearray(data)
+        bf._count = item_count
+        return bf
 
     def __repr__(self) -> str:
         return (
@@ -175,6 +198,122 @@ class BloomFilter:
             f"hashes={self.num_hashes}, memory={self.memory_bytes}B, "
             f"est_fp={self.estimated_fp_rate:.6f})"
         )
+
+
+# ── Scrapy DupeFilter integration ─────────────────────────────────
+
+
+class BloomDupeFilter(BaseDupeFilter):
+    """Scrapy DupeFilter backed by a bloom filter with optional Neon Postgres persistence.
+
+    Settings:
+        BLOOM_EXPECTED_ITEMS (int): Expected number of unique URLs. Default: 10000.
+        BLOOM_FALSE_POSITIVE_RATE (float): Target FP rate. Default: 0.001.
+        BLOOM_DB_URL (str | None): Neon Postgres connection string for persistence.
+        BLOOM_CRAWLER_ID (str): Identifier for this crawler instance. Default: 'scrapy-docs'.
+        BLOOM_DOMAIN (str): Domain being crawled. Default: 'docs.anthropic.com'.
+    """
+
+    def __init__(
+        self,
+        expected_items: int = 10000,
+        false_positive_rate: float = 0.001,
+        db_url: str | None = None,
+        crawler_id: str = "scrapy-docs",
+        domain: str = "docs.anthropic.com",
+    ) -> None:
+        self.bloom = BloomFilter(expected_items, false_positive_rate)
+        self.db_url = db_url
+        self.crawler_id = crawler_id
+        self.domain = domain
+        self._expected_items = expected_items
+        self._false_positive_rate = false_positive_rate
+
+    @classmethod
+    def from_settings(cls, settings: Any) -> BloomDupeFilter:
+        return cls(
+            expected_items=settings.getint("BLOOM_EXPECTED_ITEMS", 10000),
+            false_positive_rate=settings.getfloat("BLOOM_FALSE_POSITIVE_RATE", 0.001),
+            db_url=settings.get("BLOOM_DB_URL"),
+            crawler_id=settings.get("BLOOM_CRAWLER_ID", "scrapy-docs"),
+            domain=settings.get("BLOOM_DOMAIN", "docs.anthropic.com"),
+        )
+
+    def request_seen(self, request: Request) -> bool:
+        """Return True if request URL has been seen (bloom filter check)."""
+        fp = fingerprint(request).hex()
+        if fp in self.bloom:
+            return True
+        self.bloom.add(fp)
+        return False
+
+    def open(self) -> None:
+        """Load bloom filter state from Neon Postgres on spider open."""
+        if self.db_url:
+            self._load_from_db()
+
+    def close(self, reason: str = "") -> None:
+        """Save bloom filter state to Neon Postgres on spider close."""
+        if self.db_url:
+            self._save_to_db()
+
+    def _load_from_db(self) -> None:
+        """Load persisted bloom filter from Neon Postgres."""
+        try:
+            import psycopg2  # type: ignore[import-untyped]
+
+            conn = psycopg2.connect(self.db_url)
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT filter_bytes, expected_items, false_positive_rate, items_inserted "
+                "FROM bloom_filter_state WHERE crawler_id = %s AND domain = %s",
+                (self.crawler_id, self.domain),
+            )
+            row = cur.fetchone()
+            if row:
+                self.bloom = BloomFilter.deserialize(
+                    bytes(row[0]), row[1], row[2], row[3]
+                )
+            cur.close()
+            conn.close()
+        except Exception:
+            pass  # Fall back to empty filter
+
+    def _save_to_db(self) -> None:
+        """Persist bloom filter to Neon Postgres."""
+        try:
+            import psycopg2  # type: ignore[import-untyped]
+
+            conn = psycopg2.connect(self.db_url)
+            cur = conn.cursor()
+            cur.execute(
+                """INSERT INTO bloom_filter_state
+                     (crawler_id, domain, expected_items, false_positive_rate,
+                      hash_functions, bit_array_size, items_inserted, filter_bytes)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (crawler_id, domain) DO UPDATE SET
+                     items_inserted = EXCLUDED.items_inserted,
+                     filter_bytes = EXCLUDED.filter_bytes,
+                     updated_at = NOW()""",
+                (
+                    self.crawler_id,
+                    self.domain,
+                    self._expected_items,
+                    self._false_positive_rate,
+                    self.bloom.num_hashes,
+                    self.bloom.num_bits,
+                    self.bloom.count,
+                    self.bloom.serialize(),
+                ),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+
+
+# ── Spider-specific profiles ────────────────────────────────────
 
 
 @dataclass(frozen=True)

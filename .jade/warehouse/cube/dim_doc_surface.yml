@@ -1,0 +1,77 @@
+# dim_doc_surface.yml — Cube semantic layer for SCD Type 2 doc surface dimension
+# SQL source: ../migrations/004_dim_doc_surface.sql
+# UDA projection: .jade/surfaces/doc-surface.ts DocPageBase -> Cube dimensions
+
+cubes:
+  - name: dim_doc_surface
+    sql_table: dim_doc_surface
+    description: >
+      SCD Type 2 documentation surface dimension. One row per version of a page.
+      Natural key: canonical_url. Surrogate key: doc_surface_key.
+      Projected from TypeScript DocPageBase via UDA metamodel.
+
+    dimensions:
+      - name: doc_surface_key
+        sql: doc_surface_key
+        type: number
+        primary_key: true
+
+      - name: canonical_url
+        sql: canonical_url
+        type: string
+
+      - name: slug
+        sql: slug
+        type: string
+
+      - name: page_title
+        sql: page_title
+        type: string
+
+      - name: surface
+        sql: surface
+        type: string
+        description: "DocSurface enum: capabilities, tools, tool-reference, etc."
+
+      - name: priority
+        sql: priority
+        type: string
+        description: "CrawlPriority: critical, high, medium, low"
+
+      - name: agent_strategy
+        sql: agent_strategy
+        type: string
+
+      - name: is_current
+        sql: is_current
+        type: boolean
+
+      - name: version
+        sql: version
+        type: number
+
+      - name: effective_date
+        sql: effective_date
+        type: time
+
+      - name: edited_by
+        sql: edited_by
+        type: string
+
+    measures:
+      - name: count
+        type: count
+
+      - name: current_page_count
+        type: count
+        filters:
+          - sql: "{CUBE}.is_current = TRUE"
+
+      - name: critical_page_count
+        type: count
+        filters:
+          - sql: "{CUBE}.priority = 'critical' AND {CUBE}.is_current = TRUE"
+
+      - name: avg_version
+        type: avg
+        sql: version

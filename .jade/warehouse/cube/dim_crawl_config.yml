@@ -1,0 +1,47 @@
+# dim_crawl_config.yml — Cube semantic layer for crawl config dimension
+# SQL source: ../migrations/006_dim_crawl_config.sql
+
+cubes:
+  - name: dim_crawl_config
+    sql_table: dim_crawl_config
+    description: >
+      Crawl configuration dimension. Captures bloom filter parameters,
+      politeness settings, and retry policies.
+
+    dimensions:
+      - name: crawl_config_key
+        sql: crawl_config_key
+        type: number
+        primary_key: true
+
+      - name: config_label
+        sql: config_label
+        type: string
+
+      - name: max_depth
+        sql: max_depth
+        type: number
+
+      - name: politeness_delay_ms
+        sql: politeness_delay_ms
+        type: number
+
+      - name: bloom_expected_items
+        sql: bloom_expected_items
+        type: number
+
+      - name: bloom_false_positive
+        sql: bloom_false_positive
+        type: number
+
+      - name: retry_policy
+        sql: retry_policy
+        type: string
+
+      - name: max_retries
+        sql: max_retries
+        type: number
+
+    measures:
+      - name: count
+        type: count
