@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
 
 type Task = {
   id: number;
@@ -25,14 +26,23 @@ const INITIAL_TASKS: Task[] = [
   { id: 12, content: "Deploy to Vercel with Neon PG18", status: "pending" },
 ];
 
+const statusLabel = (status: Task["status"]) => {
+  switch (status) {
+    case "completed": return "Done";
+    case "in_progress": return "Active";
+    case "pending": return "Todo";
+  }
+};
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [newTask, setNewTask] = useState("");
+  const nextId = useRef(INITIAL_TASKS.length + 1);
 
   const addTask = () => {
     if (!newTask.trim()) return;
     setTasks([...tasks, {
-      id: tasks.length + 1,
+      id: nextId.current++,
       content: newTask.trim(),
       status: "pending",
     }]);
@@ -58,76 +68,119 @@ export default function TasksPage() {
 
   const statusColor = (status: Task["status"]) => {
     switch (status) {
-      case "completed": return "text-green-400";
-      case "in_progress": return "text-yellow-400";
-      case "pending": return "text-zinc-500";
+      case "completed": return "text-[#788c5d]";
+      case "in_progress": return "text-[#d97757]";
+      case "pending": return "text-[#6b6961]";
     }
   };
 
+  const isAddDisabled = !newTask.trim();
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-white">Task Queue</h1>
-        <p className="text-zinc-400 mt-2">
+      {/* Hero section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <h1 className="text-2xl md:text-3xl font-bold text-[#faf9f5]">Task Queue</h1>
+        <p className="text-[#b0aea5] mt-2">
           Following Claude Code&apos;s canonical task schema (TodoWrite format).
           Click a task to cycle its status.
         </p>
-      </div>
+      </motion.div>
 
       {/* Add task */}
-      <div className="flex gap-2">
+      <motion.div
+        className="flex gap-2"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
         <input
           type="text"
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addTask()}
           placeholder="Add a new task..."
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600"
+          autoCapitalize="sentences"
+          autoComplete="off"
+          autoCorrect="off"
+          enterKeyHint="done"
+          className="flex-1 bg-[#1c1c1b] border border-[#2a2a28] rounded-lg px-4 py-2 text-[#faf9f5] placeholder:text-[#6b6961] focus:outline-none focus:border-[#d97757]"
         />
-        <button
+        <motion.button
           onClick={addTask}
-          className="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-white hover:bg-zinc-700 transition-colors"
+          disabled={isAddDisabled}
+          className="bg-[#252524] border border-[#2a2a28] rounded-lg px-4 py-2 text-[#faf9f5] hover:bg-[#2a2a28] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          whileHover={isAddDisabled ? undefined : { scale: 1.05 }}
+          whileTap={isAddDisabled ? undefined : { scale: 0.95 }}
         >
           Add
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
       {/* Task list */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg divide-y divide-zinc-800/50">
-        {tasks.map((task) => (
-          <button
-            key={task.id}
-            onClick={() => toggleStatus(task.id)}
-            className="w-full flex items-center gap-3 p-3 hover:bg-zinc-800/50 transition-colors text-left"
-          >
-            <span className={`text-lg ${statusColor(task.status)}`}>
-              {statusIcon(task.status)}
-            </span>
-            <div className="flex-1">
-              <div className={`${task.status === "completed" ? "text-zinc-500 line-through" : "text-white"}`}>
-                {task.content}
+      <motion.div
+        className="bg-[#1c1c1b] border border-[#2a2a28] rounded-lg divide-y divide-[#2a2a28]/50"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
+        <AnimatePresence initial={false}>
+          {tasks.map((task, i) => (
+            <motion.button
+              key={task.id}
+              layout
+              onClick={() => toggleStatus(task.id)}
+              className="w-full flex items-center gap-3 p-3 hover:bg-[#252524]/50 transition-colors text-left"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ delay: 0.4 + i * 0.04 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <span className={`text-lg ${statusColor(task.status)}`}>
+                {statusIcon(task.status)}
+              </span>
+              <div className="flex-1">
+                <div className={`${task.status === "completed" ? "text-[#6b6961] line-through" : "text-[#faf9f5]"}`}>
+                  {task.content}
+                </div>
+                {task.activeForm && task.status === "in_progress" && (
+                  <div className="text-xs text-[#d97757] mt-0.5">{task.activeForm}</div>
+                )}
               </div>
-              {task.activeForm && task.status === "in_progress" && (
-                <div className="text-xs text-yellow-500 mt-0.5">{task.activeForm}</div>
-              )}
-            </div>
-            <span className={`text-xs px-2 py-0.5 rounded ${
-              task.status === "completed" ? "bg-green-900/50 text-green-400"
-                : task.status === "in_progress" ? "bg-yellow-900/50 text-yellow-400"
-                  : "bg-zinc-800 text-zinc-500"
-            }`}>
-              {task.status}
-            </span>
-          </button>
-        ))}
-      </div>
+              <span className={`text-xs font-medium tabular-nums px-2 py-0.5 rounded-full ${
+                task.status === "completed" ? "bg-[#788c5d]/20 text-[#788c5d]"
+                  : task.status === "in_progress" ? "bg-[#d97757]/20 text-[#d97757]"
+                    : "bg-[#252524] text-[#6b6961]"
+              }`}>
+                {statusLabel(task.status)}
+              </span>
+            </motion.button>
+          ))}
+        </AnimatePresence>
+        {tasks.length === 0 && (
+          <div className="p-8 text-center text-[#6b6961] text-sm">
+            No tasks yet. Add one above.
+          </div>
+        )}
+      </motion.div>
 
       {/* Stats */}
-      <div className="flex gap-4 text-sm text-zinc-500">
+      <motion.div
+        className="flex gap-4 text-sm text-[#6b6961]"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5, delay: 0.5 }}
+      >
         <span>{tasks.filter(t => t.status === "completed").length} completed</span>
         <span>{tasks.filter(t => t.status === "in_progress").length} in progress</span>
         <span>{tasks.filter(t => t.status === "pending").length} pending</span>
-      </div>
+      </motion.div>
     </div>
   );
 }
