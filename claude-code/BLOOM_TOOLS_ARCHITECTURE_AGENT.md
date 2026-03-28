@@ -1,24 +1,28 @@
 # BLOOM_TOOLS_ARCHITECTURE — Agent Reference
 
-> **Format**: Deterministic reference for Claude agents. No prose. Structured for tool-call planning, code generation, and automated validation. All claims traced to file:line or evaluation output.
+<bloom_filter_system>
 
----
+<system_identity>
 
-## SYSTEM IDENTITY
+This document is a deterministic reference for Claude agents performing tool-call planning, code generation, and automated validation on the bloom-filter-dedup component. All claims trace to file:line or evaluation output. The agent should use this document as the authoritative source for bloom filter behavior in `jadecli/researchers`.
 
 ```yaml
 component: bloom-filter-dedup
 repo: jadecli/researchers
 subdir: claude-code/scrapy_researchers
 language: python 3.11+
-external_deps: none  # uses stdlib hashlib, struct, math only
+external_deps: none  # stdlib hashlib, struct, math only
 test_command: "cd claude-code && PYTHONPATH=. python3 -m pytest tests/test_bloom_filter.py -v"
 eval_command: "cd claude-code && PYTHONPATH=. python3 -m scrapy_researchers.bloom_eval"
 test_count: 27
 test_status: passing
 ```
 
+</system_identity>
+
 ---
+
+<module_map>
 
 ## MODULE MAP
 
@@ -34,31 +38,35 @@ tests/test_bloom_filter.py → 27 tests across 4 test classes
 .bloomstate/             → persisted state directory (gitignored)
 ```
 
+</module_map>
+
 ---
+
+<data_structures>
 
 ## DATA STRUCTURES
 
 ### BloomFilter
 
+**Signature** (DSPy-style input → output contract):
 ```
-file: scrapy_researchers/bloom_filter.py:29
+BloomFilter(expected_items: int, fp_rate: float) → filter: BloomFilter
+filter.add(item: str) → was_possibly_present: bool
+filter.__contains__(item: str) → is_possibly_present: bool
+filter.save(path: str | Path) → None
+BloomFilter.load(path: str | Path) → filter: BloomFilter
+filter.merge(other: BloomFilter) → None  # ASSERT: self.num_bits == other.num_bits
 ```
 
-```python
-class BloomFilter:
-    __init__(expected_items: int = 100_000, fp_rate: float = 0.001)
-    add(item: str) -> bool          # returns True if item was already possibly present
-    __contains__(item: str) -> bool  # membership test (no false negatives)
-    save(path: str | Path) -> None   # binary serialize to disk
-    load(path: str | Path) -> BloomFilter  # classmethod, binary deserialize
-    merge(other: BloomFilter) -> None      # OR bit arrays (same size required)
+**Location**: `scrapy_researchers/bloom_filter.py:29`
 
-    # read-only properties
-    count: int                  # approximate unique items inserted
-    memory_bytes: int           # len(bit_array)
-    estimated_fp_rate: float    # (1 - e^(-kn/m))^k
-    num_bits: int               # m
-    num_hashes: int             # k
+**Properties** (read-only):
+```
+count: int                  # approximate unique items inserted
+memory_bytes: int           # len(bit_array)
+estimated_fp_rate: float    # (1 - e^(-kn/m))^k
+num_bits: int               # m
+num_hashes: int             # k
 ```
 
 **Hash function**: Kirsch-Mitzenmacker double hashing over SHA256.
@@ -88,10 +96,17 @@ offset  size  type     field
 
 ### BloomProfile
 
+**Signature**:
 ```
-file: scrapy_researchers/bloom_filter.py:169
+BloomProfile(expected_urls, fp_rate, persist_dir, ...) → profile: BloomProfile
+profile.dupefilter_path(spider_name: str) → str   # "{persist_dir}/{spider_name}_dupefilter.bloom"
+profile.dedup_path(spider_name: str) → str         # "{persist_dir}/{spider_name}_dedup.bloom"
+profile.to_scrapy_settings(spider_name: str) → dict[str, Any]
 ```
 
+**Location**: `scrapy_researchers/bloom_filter.py:169`
+
+**Fields**:
 ```python
 @dataclass(frozen=True)
 class BloomProfile:
@@ -104,20 +119,23 @@ class BloomProfile:
     autothrottle_start: float = 2.0
     autothrottle_max: float = 60.0
     retry_times: int = 5
-
-    dupefilter_path(spider_name: str) -> str   # "{persist_dir}/{spider_name}_dupefilter.bloom"
-    dedup_path(spider_name: str) -> str        # "{persist_dir}/{spider_name}_dedup.bloom"
-    to_scrapy_settings(spider_name: str) -> dict[str, Any]
 ```
+
+</data_structures>
 
 ---
 
+<profile_registry>
+
 ## PROFILE REGISTRY
 
+**Location**: `scrapy_researchers/bloom_filter.py:218-295`
+
+**Signature**:
 ```
-file: scrapy_researchers/bloom_filter.py:218-295
-lookup: get_bloom_profile(spider_name: str) -> BloomProfile
-fallback: DEFAULT_BLOOM_PROFILE (100K capacity, 0.001 FP)
+get_bloom_profile(spider_name: str) → BloomProfile
+# If spider_name is in BLOOM_PROFILES, return that profile.
+# Otherwise, return DEFAULT_BLOOM_PROFILE (100K capacity, 0.001 FP).
 ```
 
 | spider_name | expected_urls | fp_rate | memory_bytes | num_hashes | request_dedup | item_dedup | download_delay | autothrottle_max | retry_times |
@@ -129,20 +147,22 @@ fallback: DEFAULT_BLOOM_PROFILE (100K capacity, 0.001 FP)
 | `llms_full_spider` | 1000 | 0.001 | 1798 | 10 | **false** | true | 2.0 | 60.0 | 5 |
 | `github_spider` | 10000 | 0.001 | 17972 | 10 | **false** | true | 0.0 | 0.0 | 5 |
 
-### Profile selection logic
+<profile_selection_rules>
 
-```
-IF spider_name IN BLOOM_PROFILES:
-    RETURN BLOOM_PROFILES[spider_name]
-ELSE:
-    RETURN DEFAULT_BLOOM_PROFILE
+The agent selects profiles using these conditional rules:
 
-IF profile.request_dedup == False:
-    to_scrapy_settings() emits DUPEFILTER_CLASS = "scrapy.dupefilters.RFPDupeFilter"
-    → BloomDupeFilter is NOT instantiated for this spider
-```
+- If `spider_name` is a key in `BLOOM_PROFILES`, use that profile.
+- If `spider_name` is not found, use `DEFAULT_BLOOM_PROFILE`.
+- If `profile.request_dedup` is false, `to_scrapy_settings()` emits `DUPEFILTER_CLASS = "scrapy.dupefilters.RFPDupeFilter"` and BloomDupeFilter is not instantiated.
+- If `profile.request_dedup` is true, `to_scrapy_settings()` emits `DUPEFILTER_CLASS = "scrapy_researchers.bloom_dupefilter.BloomDupeFilter"`.
+
+</profile_selection_rules>
+
+</profile_registry>
 
 ---
+
+<integration_points>
 
 ## INTEGRATION POINTS
 
@@ -175,26 +195,27 @@ behavior: merges BloomProfile.to_scrapy_settings() into Scrapy Settings
 priority: "spider" (overridden by custom_settings if explicitly set)
 ```
 
-**Call sequence per spider run**:
-```
-1. Scrapy calls SpiderClass.update_settings(settings)
-   → get_bloom_profile(cls.name)
-   → profile.to_scrapy_settings(cls.name)
-   → settings.set(key, value, priority="spider") for each bloom key
-2. Scrapy instantiates BloomDupeFilter.from_settings(settings)
-   → reads BLOOM_EXPECTED_URLS, BLOOM_FP_RATE, BLOOM_PERSIST_PATH
-3. Scrapy instantiates DedupPipeline, calls open_spider()
-   → reads BLOOM_DEDUP_EXPECTED_ITEMS, BLOOM_DEDUP_FP_RATE, BLOOM_DEDUP_PERSIST_PATH
-4. Crawl runs. BloomDupeFilter.request_seen() gates requests.
-   DedupPipeline.process_item() gates items.
-5. Spider closes. Both save state to disk.
-```
+<call_sequence>
+
+**The agent should understand this execution order per spider run**:
+
+1. Scrapy calls `SpiderClass.update_settings(settings)` → `get_bloom_profile(cls.name)` → `profile.to_scrapy_settings(cls.name)` → `settings.set(key, value, priority="spider")` for each bloom key
+2. Scrapy instantiates `BloomDupeFilter.from_settings(settings)` → reads `BLOOM_EXPECTED_URLS`, `BLOOM_FP_RATE`, `BLOOM_PERSIST_PATH`
+3. Scrapy instantiates `DedupPipeline`, calls `open_spider()` → reads `BLOOM_DEDUP_EXPECTED_ITEMS`, `BLOOM_DEDUP_FP_RATE`, `BLOOM_DEDUP_PERSIST_PATH`
+4. Crawl runs. `BloomDupeFilter.request_seen()` gates requests. `DedupPipeline.process_item()` gates items.
+5. Spider closes. Both components save state to disk.
+
+</call_sequence>
+
+</integration_points>
 
 ---
 
+<anti_blocking>
+
 ## ANTI-BLOCKING MEASURES (platform.claude.com)
 
-Applied in `platform_spider.py`. Ordered by execution phase:
+Applied in `platform_spider.py`. The agent should understand these as a layered defense ordered by execution phase:
 
 | Phase | Measure | File:Line | Mechanism |
 |---|---|---|---|
@@ -210,13 +231,15 @@ Applied in `platform_spider.py`. Ordered by execution phase:
 | Download | Retry backoff | middlewares.py:120-145 | Exponential: 2^n + uniform(0,1) |
 | Item | Content dedup | pipelines.py:154-163 | Bloom filter on SHA256(url+content[:500]) |
 
+</anti_blocking>
+
 ---
+
+<evaluation_results>
 
 ## EVALUATION RESULTS
 
-```
-source: bloom_eval.py output (reproducible via eval_command above)
-```
+Reproducible via: `cd claude-code && PYTHONPATH=. python3 -m scrapy_researchers.bloom_eval`
 
 ### Memory comparison (SHA256 set vs Bloom filter)
 
@@ -238,39 +261,49 @@ source: bloom_eval.py output (reproducible via eval_command above)
 | 50000 | 0.001 | 0.0014 | 10000 |
 | 100000 | 0.001 | 0.0016 | 10000 |
 
-### Invariants (verified by test suite)
-
-```
-INVARIANT: false_negatives == 0              # bloom filters guarantee this
-INVARIANT: loaded.count == original.count     # persistence preserves count
-INVARIANT: loaded.num_bits == original.num_bits
-INVARIANT: loaded.num_hashes == original.num_hashes
-INVARIANT: ∀ item ∈ inserted: item ∈ loaded  # no false negatives after roundtrip
-INVARIANT: ∀ (s1, s2) ∈ BLOOM_PROFILES:
-             s1.dupefilter_path(s1_name) ≠ s2.dupefilter_path(s2_name)  # no path collisions
-```
+</evaluation_results>
 
 ---
 
+<invariants>
+
+## INVARIANTS AND ASSERTIONS
+
+The agent should verify these hold true. If any invariant is violated, the agent should stop and investigate before proceeding.
+
+```
+ASSERT: false_negatives == 0              # bloom filters guarantee zero false negatives
+ASSERT: loaded.count == original.count     # persistence preserves count
+ASSERT: loaded.num_bits == original.num_bits
+ASSERT: loaded.num_hashes == original.num_hashes
+ASSERT: for all item in inserted: item in loaded  # no false negatives after roundtrip
+ASSERT: for all (s1, s2) in BLOOM_PROFILES:
+          s1.dupefilter_path(s1_name) != s2.dupefilter_path(s2_name)  # no path collisions
+```
+
+</invariants>
+
+---
+
+<tool_applicability>
+
 ## AGENT TOOL APPLICABILITY MATRIX
 
-```
-source: bloom_tool_analysis.py
-method: A[14×4] @ w[4×1] = scores[14×1]
-```
+**Source**: `bloom_tool_analysis.py`
+**Method**: `A[14x4] @ w[4x1] = scores[14x1]`
 
-### Criteria (columns of A, all normalized [0,1])
+### Criteria weights
 
 | index | criterion | weight | derivation |
 |---|---|---|---|
-| 0 | token_savings | 0.40 | `(dup_rate × avg_tokens × calls) / max_savings` |
+| 0 | token_savings | 0.40 | `(dup_rate * avg_tokens * calls) / max_savings` |
 | 1 | fingerprint_quality | 0.20 | `fingerprint_feasibility` (direct) |
 | 2 | low_rework | 0.25 | `1.0 - rework_effort` |
 | 3 | call_frequency | 0.15 | `log(calls + 1) / log(max_calls + 1)` |
 
 ### Scored tools (descending)
 
-| tool | score | tokens_saved_per_session | dup_rate | fingerprint_feasibility | rework_effort | category |
+| tool | score | tokens_saved | dup_rate | fp_feasibility | rework | category |
 |---|---|---|---|---|---|---|
 | Read | 0.965 | 18000 | 0.40 | 0.95 | 0.10 | builtin |
 | Grep | 0.582 | 2000 | 0.25 | 0.90 | 0.10 | builtin |
@@ -295,28 +328,21 @@ theoretical_max_savings:       43685  (33.7%)
 feasible_savings:              39435  (30.4%)  # fingerprint >= 0.70 AND rework <= 0.35
 ```
 
-### Tool dedup decision tree
+<tool_dedup_rules>
 
-```
-FOR each tool_call in agent_loop:
-    IF tool.name IN {Write, Edit, NotebookEdit}:
-        SKIP  # write operations, never dedup
-    IF tool.name IN {slack_send_message, gmail_create_draft, save_issue, save_comment}:
-        SKIP  # side-effectful sends, never dedup
-    IF tool.name == "Bash":
-        SKIP  # side effects make cached results dangerous
-    IF tool.name == "Agent":
-        SKIP  # prompts too fuzzy to fingerprint (feasibility=0.50)
+### Tool dedup decision rules
 
-    fingerprint = compute_fingerprint(tool.name, tool.input_params)
-    IF fingerprint IN bloom_filter:
-        RETURN cached_result[fingerprint]  # skip API call
-    ELSE:
-        result = execute_tool(tool_call)
-        bloom_filter.add(fingerprint)
-        cached_result[fingerprint] = result
-        RETURN result
-```
+The agent should apply these rules in order when considering bloom dedup for a tool call:
+
+1. If the tool is a **write operation** (Write, Edit, NotebookEdit): skip dedup. Write operations are never cached.
+2. If the tool is a **side-effectful send** (slack_send_message, gmail_create_draft, save_issue, save_comment): skip dedup. Sends are never cached.
+3. If the tool is **Bash**: skip dedup. Shell commands have side effects that make cached results unsafe.
+4. If the tool is **Agent**: skip dedup. Prompt variability makes fingerprinting unreliable (feasibility=0.50).
+5. For all other read-only tools: compute fingerprint, check bloom filter, return cached result on hit.
+
+</tool_dedup_rules>
+
+<fingerprint_schemes>
 
 ### Fingerprint schemes per tool
 
@@ -334,56 +360,71 @@ FOR each tool_call in agent_loop:
 | Slack (read) | `f"{channel_id}:{thread_ts}"` | thread_ts=None for channel reads |
 | WebSearch | `f"{normalized_query}"` | lowercase, strip whitespace; low feasibility |
 
----
+</fingerprint_schemes>
 
-## CONSTRAINTS AND INVARIANTS
-
-### Must hold
-
-```
-1. BloomFilter guarantees zero false negatives.
-2. Persisted state must roundtrip without data loss.
-3. Each spider's .bloom files must be path-isolated (no filename collisions).
-4. request_dedup=False spiders must NOT instantiate BloomDupeFilter.
-5. Write/Edit/send tools must NEVER be bloom-deduped.
-6. Bash tool must NEVER return cached results (side effects).
-```
-
-### Known limitations
-
-```
-1. Bloom filters cannot detect content changes. Use DeltaFetch + HTTP 304 for that.
-2. BLOOM_PROFILES is static. No runtime resizing if capacity is exceeded.
-   Symptom: estimated_fp_rate rises above target.
-   Mitigation: profiles are conservatively sized at ~10x expected URL count.
-3. Bloom filter FP rate at small n (< 1000) has high variance.
-   Mitigation: use DeltaFetch as primary dedup; bloom is supplementary.
-4. Agent (Explore) tool has fingerprint_feasibility=0.50 — prompts are
-   too variable for reliable dedup. Do not attempt without prompt normalization.
-```
+</tool_applicability>
 
 ---
+
+<constraints>
+
+## CONSTRAINTS
+
+<hard_constraints>
+
+### The agent does not violate these constraints
+
+1. BloomFilter guarantees zero false negatives. If a false negative is observed, the implementation is broken.
+2. Persisted bloom state roundtrips without data loss. If loaded state differs from saved state, the persistence format is broken.
+3. Each spider's `.bloom` files are path-isolated. If two spiders share a bloom file path, profile configuration is broken.
+4. Spiders with `request_dedup=False` use Scrapy's default `RFPDupeFilter`, not `BloomDupeFilter`.
+5. Write, Edit, and send tools are never bloom-deduped.
+6. Bash tool results are never cached via bloom filter.
+
+</hard_constraints>
+
+<soft_constraints>
+
+### The agent is cautious about these limitations
+
+1. Bloom filters cannot detect content changes at a URL. If fresh content is needed, use DeltaFetch + HTTP 304 instead.
+2. `BLOOM_PROFILES` is static. If `estimated_fp_rate` rises above the target, the profile's `expected_urls` is too low. Profiles are conservatively sized at ~10x expected URL count to mitigate this.
+3. Bloom filter FP rate at small n (< 1000) has high variance. Use DeltaFetch as primary dedup; bloom is supplementary at low scale.
+4. Agent (Explore) tool has `fingerprint_feasibility=0.50`. Prompts are too variable for reliable dedup without prompt normalization.
+
+</soft_constraints>
+
+</constraints>
+
+---
+
+<modification_procedures>
 
 ## MODIFICATION GUIDE
 
+<procedure name="add_new_spider">
+
 ### Adding a new spider
 
-```
-1. Define BloomProfile in bloom_filter.py BLOOM_PROFILES dict
-2. Spider must inherit from BaseResearchSpider
-3. update_settings() auto-injects profile — no manual wiring needed
-4. Add spider_name to test_all_spiders_have_profiles test
-5. Run: PYTHONPATH=. python3 -m pytest tests/test_bloom_filter.py -v
-```
+1. Define a `BloomProfile` entry in `BLOOM_PROFILES` dict (`bloom_filter.py:218+`)
+2. Ensure the spider inherits from `BaseResearchSpider`
+3. `update_settings()` auto-injects the profile. No manual wiring is needed.
+4. Add the spider name to the `test_all_spiders_have_profiles` test
+5. Validate: `PYTHONPATH=. python3 -m pytest tests/test_bloom_filter.py -v`
+
+</procedure>
+
+<procedure name="change_bloom_parameters">
 
 ### Changing a spider's bloom parameters
 
-```
-1. Edit the spider's entry in BLOOM_PROFILES (bloom_filter.py:218+)
-2. Delete the old .bloomstate/{spider_name}_*.bloom files
-   (parameter change makes old state incompatible)
-3. Run eval to verify: PYTHONPATH=. python3 -m scrapy_researchers.bloom_eval
-```
+1. Edit the spider's entry in `BLOOM_PROFILES` (`bloom_filter.py:218+`)
+2. Delete old state files: `rm scrapy_researchers/.bloomstate/{spider_name}_*.bloom` (parameter change makes old state incompatible)
+3. Validate: `PYTHONPATH=. python3 -m scrapy_researchers.bloom_eval`
+
+</procedure>
+
+<procedure name="reset_bloom_state">
 
 ### Resetting bloom state for a spider
 
@@ -392,6 +433,10 @@ rm scrapy_researchers/.bloomstate/{spider_name}_dupefilter.bloom
 rm scrapy_researchers/.bloomstate/{spider_name}_dedup.bloom
 # next crawl run creates fresh filters
 ```
+
+</procedure>
+
+<procedure name="add_agent_tool_dedup">
 
 ### Adding bloom dedup to the agent tool loop
 
@@ -404,7 +449,13 @@ fingerprint: tool.name + JSON.stringify(sorted_input_params)
 cache: Map<string, ToolResult> alongside the BloomFilter
 ```
 
+</procedure>
+
+</modification_procedures>
+
 ---
+
+<cross_references>
 
 ## CROSS-REFERENCES
 
@@ -416,3 +467,7 @@ cache: Map<string, ToolResult> alongside the BloomFilter
 | `claude-multi-agent-sdk/src/agent/loop.ts` | Agent tool execution loop (bloom integration target) |
 | `claude-multi-agent-sdk/src/context/manager.ts` | Progressive tool disclosure (complementary optimization) |
 | `claude-multi-agent-dispatch/src/quality/feedback.ts:187` | Existing Set-based dedup (bloom could replace) |
+
+</cross_references>
+
+</bloom_filter_system>
