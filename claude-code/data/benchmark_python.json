@@ -1,0 +1,8 @@
+{
+  "crawler": "python-scrapy",
+  "target": "releasebot.io/sitemap-products.xml",
+  "fixture_mode": true,
+  "elapsed_seconds": 1.617,
+  "exit_code": 0,
+  "timestamp": "2026-03-28T04:05:05Z"
+}

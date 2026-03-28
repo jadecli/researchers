@@ -1,0 +1,17 @@
+{
+  "crawler": "typescript-crawlee-mnemonist-baml",
+  "target": "releasebot.io + anthropic.com/customers",
+  "fixtureMode": true,
+  "elapsedSeconds": 0.477,
+  "stats": {
+    "pagesRequested": 6,
+    "pagesCrawled": 6,
+    "errors": 3,
+    "startTime": 0,
+    "endTime": 0,
+    "elapsedMs": 476.8293849999998,
+    "items": 6,
+    "avgQuality": 0.9199999999999999
+  },
+  "timestamp": "2026-03-28T04:11:08.399Z"
+}
