@@ -3,6 +3,9 @@
 Evaluates which tools in the Claude Code toolchain would benefit from
 bloom filter dedup, quantified via linear algebra scoring matrices.
 
+Full tool inventory derived from Claude Code tools reference (29 builtin tools)
+plus MCP tools observed in the codebase.
+
 Run: cd claude-code && PYTHONPATH=. python3 -m scrapy_researchers.bloom_tool_analysis
 """
 
@@ -175,6 +178,168 @@ TOOLS: list[ToolProfile] = [
         fingerprint_feasibility=0.90,  # library-id + query fingerprints well
         rework_effort=0.10,
         description="Library doc queries — same lib re-queried across turns",
+    ),
+
+    # ── Additional builtin tools (from Claude Code tools reference) ─
+    ToolProfile(
+        name="LSP",
+        category="builtin",
+        avg_tokens_per_call=400,
+        calls_per_session=12,
+        duplicate_rate=0.35,    # same symbol lookups after context compression
+        fingerprint_feasibility=0.90,  # file+position+operation is exact
+        rework_effort=0.10,
+        description="Language server — jump-to-def/references repeat after compaction",
+    ),
+    ToolProfile(
+        name="Skill",
+        category="builtin",
+        avg_tokens_per_call=500,
+        calls_per_session=3,
+        duplicate_rate=0.10,    # skills are user-invoked, rarely duplicated
+        fingerprint_feasibility=0.85,  # skill_name + args fingerprint well
+        rework_effort=0.15,
+        description="Skill execution — user-invoked, low repetition",
+    ),
+    ToolProfile(
+        name="AskUserQuestion",
+        category="builtin",
+        avg_tokens_per_call=200,
+        calls_per_session=3,
+        duplicate_rate=0.05,    # questions are contextual, almost never repeat
+        fingerprint_feasibility=0.30,  # question text varies too much
+        rework_effort=0.50,     # user interaction, must never cache
+        description="User questions — interactive, must never be deduped",
+    ),
+    ToolProfile(
+        name="TaskCreate",
+        category="builtin",
+        avg_tokens_per_call=100,
+        calls_per_session=5,
+        duplicate_rate=0.05,    # creates new tasks, write operation
+        fingerprint_feasibility=0.20,  # write operation
+        rework_effort=0.80,     # side-effectful, must never cache
+        description="Task creation — write operation, never dedup",
+    ),
+    ToolProfile(
+        name="TaskList",
+        category="builtin",
+        avg_tokens_per_call=300,
+        calls_per_session=8,
+        duplicate_rate=0.40,    # re-listed to check status
+        fingerprint_feasibility=0.90,  # no params, exact
+        rework_effort=0.05,     # trivial to cache within a turn
+        description="Task listing — frequently re-checked for status",
+    ),
+    ToolProfile(
+        name="TaskUpdate",
+        category="builtin",
+        avg_tokens_per_call=100,
+        calls_per_session=8,
+        duplicate_rate=0.05,    # updates are write operations
+        fingerprint_feasibility=0.20,  # write operation
+        rework_effort=0.80,     # side-effectful
+        description="Task update — write operation, never dedup",
+    ),
+    ToolProfile(
+        name="TaskGet",
+        category="builtin",
+        avg_tokens_per_call=200,
+        calls_per_session=4,
+        duplicate_rate=0.30,    # same task re-read
+        fingerprint_feasibility=0.95,  # task_id is exact
+        rework_effort=0.05,
+        description="Task detail fetch — same task re-read for context",
+    ),
+    ToolProfile(
+        name="CronCreate",
+        category="builtin",
+        avg_tokens_per_call=100,
+        calls_per_session=1,
+        duplicate_rate=0.05,    # rare, write operation
+        fingerprint_feasibility=0.20,
+        rework_effort=0.80,
+        description="Cron scheduling — write operation, never dedup",
+    ),
+    ToolProfile(
+        name="CronList",
+        category="builtin",
+        avg_tokens_per_call=200,
+        calls_per_session=2,
+        duplicate_rate=0.40,    # re-listed to check schedules
+        fingerprint_feasibility=0.95,  # no params
+        rework_effort=0.05,
+        description="Cron listing — re-checked for schedule status",
+    ),
+    ToolProfile(
+        name="EnterPlanMode",
+        category="builtin",
+        avg_tokens_per_call=100,
+        calls_per_session=1,
+        duplicate_rate=0.05,    # mode switch, not cacheable
+        fingerprint_feasibility=0.10,
+        rework_effort=0.90,     # state-changing
+        description="Plan mode entry — state-changing, never dedup",
+    ),
+    ToolProfile(
+        name="NotebookEdit",
+        category="builtin",
+        avg_tokens_per_call=500,
+        calls_per_session=4,
+        duplicate_rate=0.05,    # write operation
+        fingerprint_feasibility=0.20,
+        rework_effort=0.80,
+        description="Notebook cell edit — write operation, never dedup",
+    ),
+    ToolProfile(
+        name="Write",
+        category="builtin",
+        avg_tokens_per_call=800,
+        calls_per_session=6,
+        duplicate_rate=0.02,    # write operation, always unique
+        fingerprint_feasibility=0.10,
+        rework_effort=0.90,
+        description="File write — write operation, never dedup",
+    ),
+    ToolProfile(
+        name="Edit",
+        category="builtin",
+        avg_tokens_per_call=400,
+        calls_per_session=15,
+        duplicate_rate=0.02,    # write operation
+        fingerprint_feasibility=0.10,
+        rework_effort=0.90,
+        description="File edit — write operation, never dedup",
+    ),
+    ToolProfile(
+        name="EnterWorktree",
+        category="builtin",
+        avg_tokens_per_call=100,
+        calls_per_session=1,
+        duplicate_rate=0.05,
+        fingerprint_feasibility=0.10,
+        rework_effort=0.90,     # state-changing
+        description="Git worktree entry — state-changing, never dedup",
+    ),
+    ToolProfile(
+        name="ListMcpResourcesTool",
+        category="builtin",
+        avg_tokens_per_call=300,
+        calls_per_session=2,
+        duplicate_rate=0.50,    # schema listing repeats
+        fingerprint_feasibility=0.95,
+        rework_effort=0.05,
+        description="MCP resource listing — static schema, high dup rate",
+    ),
+    ToolProfile(
+        name="ReadMcpResourceTool",
+        category="builtin",
+        avg_tokens_per_call=500,
+        calls_per_session=3,
+        duplicate_rate=0.35,
+        fingerprint_feasibility=0.95,  # URI is exact
+        rework_effort=0.05,
+        description="MCP resource read — URI-keyed, moderate repetition",
     ),
 ]
 
@@ -360,12 +525,19 @@ def main() -> None:
     print("Tools with verified bloom filter benefit (Tier 1):")
     print("  - Read: highest token cost, highest dup rate (40%), trivial fingerprint")
     print("  - ToolSearch: 50% dup rate, exact fingerprint, near-zero rework")
+    print("  - ListMcpResources: 50% dup rate, static schema, near-zero rework")
     print("  - Context7 query-docs: 45% dup rate, library+query fingerprints cleanly")
+    print("  - TaskList/CronList: re-queried for status, exact fingerprint")
+    print("  - LSP: symbol lookups repeat after context compaction")
     print("  - Glob/Grep: pattern+path fingerprint exactly, 25-30% dup rate")
     print("  - GitHub/Linear list/search: same queries repeated across review turns")
     print()
-    print("Tools where bloom does NOT help (intentionally excluded):")
-    print("  - Write/Edit: always produce new content, no meaningful duplication")
+    print("Tools where bloom does NOT help (never dedup — write/state operations):")
+    print("  - Write/Edit/NotebookEdit: write operations, always produce new content")
+    print("  - TaskCreate/TaskUpdate: write operations, must always execute")
+    print("  - CronCreate/CronDelete: write operations, must always execute")
+    print("  - EnterPlanMode/EnterWorktree: state-changing, not cacheable")
+    print("  - AskUserQuestion: interactive, must never cache user interaction")
     print("  - Slack/Gmail send: write operations, must never be deduped")
     print("  - Supabase mutations: INSERT/UPDATE must always execute")
     print("  - Agent spawns: prompts too fuzzy to fingerprint reliably")
