@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# AI agent discovery
+# See /llms.txt for structured route listing
+
+Sitemap: https://agenttasks.vercel.app/sitemap.xml

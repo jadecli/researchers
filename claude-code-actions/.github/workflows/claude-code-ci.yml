@@ -1,0 +1,65 @@
+name: Claude Code CI Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: agenttasks/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd agenttasks && npm ci --no-audit --no-fund
+          cd ../claude-multi-agent-sdk && npm install --legacy-peer-deps --no-audit --no-fund
+          cd ../claude-multi-agent-dispatch && npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: TypeScript check
+        run: cd agenttasks && npx tsc --noEmit
+
+      - name: Run SDK tests
+        run: cd claude-multi-agent-sdk && npx vitest run
+
+      - name: Run dispatch tests
+        run: cd claude-multi-agent-dispatch && npx vitest run
+
+      - name: Review with Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request for correctness, type safety, and architecture compliance.
+
+            Run: git diff origin/main...HEAD
+
+            Check for:
+            1. Type safety: Boris Cherny branded types used correctly, Result<T,E> instead of thrown exceptions
+            2. Architecture: Kimball star schema conformance in SQL, runtime→reporting→semantic layer separation
+            3. Exhaustiveness: assertNever() used for discriminated union switches
+            4. Test coverage: New code has corresponding test files
+            5. Conventional commits: All commit messages follow conventional commit format
+            6. No secrets or credentials in code
+            7. No next/font/google imports (must use next/font/local)
+
+            Post a review comment summarizing findings and suggestions.
+          max_turns: 15

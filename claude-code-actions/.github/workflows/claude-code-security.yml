@@ -1,0 +1,70 @@
+name: Claude Code Security Review
+
+on:
+  pull_request:
+    paths:
+      - "agenttasks/src/**"
+      - "claude-multi-agent-sdk/src/**"
+      - "claude-multi-agent-dispatch/src/**"
+      - "claude-code-agents-typescript/src/**"
+      - "claude-code-agents-python/src/**"
+      - "claude-channel-dispatch-routing/migrations/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+jobs:
+  security-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install security scanner
+        run: pip install -e "claude-code-security-review/.[dev]" 2>/dev/null || true
+
+      - name: Security review with Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Perform a security review of the changes in this pull request.
+
+            Run: git diff origin/main...HEAD
+
+            Check for OWASP Top 10 vulnerabilities:
+            1. Injection: SQL injection in migration files, command injection in Bash hooks
+            2. Broken authentication: Hardcoded credentials, API keys, tokens
+            3. Sensitive data exposure: PII in logs, secrets in commits
+            4. XXE: Unsafe XML parsing
+            5. Broken access control: Permission bypasses
+            6. Security misconfiguration: Debug flags, verbose errors
+            7. XSS: Unsanitized user input in React/Next.js components
+            8. Insecure deserialization: Unsafe JSON.parse on untrusted input
+            9. Known vulnerabilities: Outdated dependencies with CVEs
+            10. Insufficient logging: Missing audit trail for security events
+
+            Also check:
+            - Supply chain: Package integrity, lockfile consistency
+            - SSRF: Internal network access from user-controlled URLs
+            - Path traversal: Unsanitized file paths
+            - Credential patterns: AWS keys, JWT tokens, OAuth secrets
+
+            Reference the scanner rules at claude-code-security-review/rules/plugin_safety_rules.yaml
+
+            Post a security review comment with severity ratings for each finding.
+          max_turns: 10

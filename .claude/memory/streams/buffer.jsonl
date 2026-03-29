@@ -172,3 +172,56 @@
     ]
   }
 }
+{
+  "event_type": "prompt",
+  "session_id": "unknown",
+  "sequence_number": 5,
+  "git_branch": "claude/multi-agent-extraction-pipeline-zWEVc",
+  "git_sha": "a4586af",
+  "agent_id": "orchestrator",
+  "user_id": "Claude",
+  "surface": "cli",
+  "token_count": 2162,
+  "created_at": "2026-03-29T18:40:08Z",
+  "payload": {
+    "prompt_text": "These need to be complete and ate in scope \n\n\nRan a hook on session resume\n--- Session Environment ---\n  Node v22.22.0\n  agenttasks/node_modules: present\nShow less\n  git pre-commit hook: present\n  agenttasks TypeScript: clean\n  Python 3.11.14\n  WARNING: scrapy not installed\n---\n--- Agentcommits Context ---\n  Recent commits (last 10):\n    a4586af chore: flush agentstreams buffer for team orchestrator session\n    06a9835 feat: add multi-agent team orchestrator with crawl→store→bloom pipeline\n    31627f7 chore: flush agentstreams buffer for extraction session\n    beecd30 feat: add multi-agent concurrency, routing, heartbeat, and cursor modules\n    afa3607 chore: add agentstreams buffer for multi-agent extraction session\n    ebf8eea feat: add animated Agent Loop page with motion.dev (#4)\n    007ca21 feat: add 3 crawlers with benchmark — Python Scrapy, TS Cheerio, Crawlee+mnemonist+BAML (#8)\n    01538c9 feat: crawl llms.txt and llms-full.txt for AI video generation competitors (#9)\n    7c24192 feat: add agentcommits crawl infrastructure with bloom filters and DSPy pipeline (#12)\n    bfd7c81 feat: add .jade data models, warehouse schema, and crawl orchestration (#14)\n  Agent-authored: 1 of last 50 commits\n  Branch: claude/multi-agent-extraction-pipeline-zWEVc\n  Commits ahead of main: 28\n  Working tree: 0 modified, 0 staged, 0 untracked\n  Open TODOs: 24 (9 high priority)\n---\n--- Available Headless Scripts ---\n  ci-failure-router.sh — .claude/scripts/ci-failure-router.sh — Headless CI failure response\n  triage-ci-failure.py — \n---\n--- Enforcement Layer ---\n  PreToolUse hooks active:\n    validate-commit.sh — Conventional commit format (blocks non-compliant)\n    quality-gate.sh    — Return types, architecture, secrets (blocks errors)\n    pre-pr-gate.sh     — Full build, uncommitted changes, security (blocks PR creation)\n  Git pre-commit hook:\n    TypeScript compilation, secrets, cross-boundary imports\n  Escalation chain:\n    1. Fix at source (hook blocks + provides guidance)\n    2. Slack alert (CI failures via ci-quality-gate.yml)\n    3. Linear ticket (triage-ci-failure.py creates issues)\n    4. TODO in todos.jsonl (local fallback, never silent)\n---\n--- Prior Session Context ---\n# Next Session Context\n> This file is dynamically replaced at the end of each Claude Code session.\n> It captures out-of-scope items from the current session that should be\n> addressed in a fresh PR. Read by the SessionStart hook for continuity.\n>\n> Last updated: 2026-03-28 (session: agentstreams-jade-department-launch)\n## Bootstrap\n**NEW**: `.claude/bootstrap.xml` is the deterministic entry point for all sessions.\nRead it at session start for model routing, pinned documents, and architecture\ncomponent awareness. The bootstrap replaces ad-hoc context loading with a\nstructured XML prompt that defines how this repo operates.\n## Claude Code Version Pin\n**Last reviewed:** `2.1.85`\n**Current latest:** `2.1.85`\n**Changelog:** https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md\nAt session start, diff the changelog from the pinned version to current.\nIncorporate relevant improvements into this repo's structure, hooks, and workflows.\nAfter reviewing, bump the pin to the latest version in this file.\n### Notable changes since 2.1.80 (all reviewed this session):\n- **2.1.81**: `--bare` flag for scripted API calls; `--channels` permission relay for mobile approval\n- **2.1.82**: Worktree session initialization fixes\n- **2.1.83**: Drop-in directory support for modular policy; `CwdChanged`/`FileChanged` reactive hooks; `initialPrompt` frontmatter for agents\n- **2.1.84**: `TaskCreated` hook for task lifecycle; `PreToolUse` hooks can provide headless answers; model capability detection env vars\n- **2.1.85**: Conditional hook execution via permission rule syntax; MCP OAuth RFC 9728; org-managed plugin blocking\n## Research Docs (.claude/research/)\nSix research docs exist, two more are planned. Read at session start:\n| File | Priority | Status |\n|------|----------|--------|\n| `agentcrawls.md` | P0 | Infrastructure exists, formalization needed |\n| `agentdata.md` | P0 | Infrastructure exists, Tier 4 views needed |\n| `agentevals.md` | P0 | Design complete, implementation needed |\n| `agentstreams.md` | P0 | **NEW** — unified event backbone, DDL in migration 008 |\n| `agentcommits.md` | P2 | Conceptual, start using git trailers |\n| `agentprompts.md` | P2 | Conceptual, needs data from evals first |\n| `agentmemories` | P1 | Not yet written — write research doc |\n| `agentspecs` | P3 | Not yet written — conditional |\n## Agentstreams (NEW — P0)\nUnified event stream backbone capturing all agent activity to Neon.\n- **DDL**: `claude-channel-dispatch-routing/migrations/008_agentstreams.sql`\n- **Hooks**: `capture-prompt.sh` (UserPromptSubmit), `flush-streams.sh` (manual/Stop)\n- **Session metadata**: `session-setup.sh` now emits session start events\n- **Buffer**: `.claude/memory/streams/buffer.jsonl` (local, flushes to Neon)\n- **Manifest**: `.claude/memory/streams/<branch>.json` (sync state per branch)\n- **8 event types**: prompt, commit, crawl, decision, taxonomy, eval, session, dispatch\n- **Semantic views**: session_timeline, prompt_history, decision_trail, branch_activity\n## Bloom Filters (IMPLEMENTED — was P1)\nTool routing via probabilistic pre-check, now in both TypeScript and Python:\n- **TypeScript**: `claude-multi-agent-sdk/src/agent/bloom-filter.ts` (Boris Cherny patterns)\n- **Python + DSPy**: `claude-code-agents-python/src/dspy_pipeline/bloom_router.py`\n- **DSPy signatures**: ToolIntentClassifier, StreamEventClassifier\n- Combined router: bloom gate → DSPy classify → dispatch\n## YAML Agent Definitions (NEW)\nFour agents defined in `.jade/agents/`:\n- `orchestrator.yaml` — Opus root, Layer 2.5, Shannon thinking\n- `stream-capture.yaml` — Haiku observer, JSONL buffer\n- `taxonomy-crawler.yaml` — Sonnet researcher, DSPy PageClassifier\n- `prompt-analyst.yaml` — Sonnet analyst, intent classification\n## .jade/ Directory Structure (NEW)\nProduct-strategy department artifacts:\n- `.jade/cofounder-prompts/` — 3 vision prompts + session prompts capture\n- `.jade/customer-journey-map.md` — 128 inputs, 30 outputs, 26 agents\n- `.jade/taxonomy/` — TypeScript enums + Kimball DDL for artifact classification\n- `.jade/agents/` — YAML agent definitions with paired scripts\n## Out of Scope (do NOT add to current PR)\n### P0: Implement agentdata Tier 4 views (migration 008)\n- Create `agentdata` Postgres schema in Neon PG18\n- `agentdata.claude_code_context` view (token-budgeted agent context)\n- `agentdata.session_briefing` view (SessionStart hook query)\n- `agentdata.domain_summary` view (per-domain knowledge summary)\n- Connect SessionStart hook to query Neon when DATABASE_URL is set\n### P0: Implement agentevals deterministic loop\n- `runtime.eval_events` table\n- `reporting.fact_eval_finding` fact table\n- `semantic.eval_pass_rate` metric view\n- Single-agent evaluator (Opus) with manual trigger\n- Multi-agent dispatch via claude-multi-agent-dispatch\n### P1: Agent bloom filters — DONE (merged in this PR)\n- TypeScript + Python implementations shipped\n- DSPy ToolIntentClassifier + StreamEventClassifier signatures\n- Next: add vitest + pytest tests, connect to live dispatch\n### P1: Write agentmemories research doc\n- Cross-session knowledge persistence\n- Episodic, semantic, procedural memory types\n- Decay, consolidation, conflict resolution\n- Replace .claude/memory/ flat files with agentdata Tier 4\n### ci: add Claude Code CI/CD checks to GitHub Actions\nAdd two workflows using `CLAUDE_CODE_OAUTH_TOKEN` from repo secrets:\n1. Claude Code CI check (`claude-code-ci.yml`) — PR correctness review\n2. Claude Code security review (`claude-code-security.yml`) — scanner triage\n### feat: dual-format agenttasks webapp\nHuman-readable + AI agent-optimized across 7 areas:\n1. Site-level discovery (llms.txt, robots.txt, AGENTS.md)\n2. Page-level HTML (JSON-LD, canonical, meta)\n3. Markdown mirrors + content negotiation\n4. Code/API docs\n5. Next.js tooling (@agentmarkup/next)\n6. Implementation checklist (5 phases)\n7. Reference URLs\n### References\n- Existing workflows in `claude-code-actions/.github/workflows/` (7 workflows)\n- Security scanners in `claude-code-security-review/scanners/` (Python, TS, Go, Rust)\n- Hook profiles in `claude-multi-agent-sdk/src/hooks/profiles.ts` (CI profile pattern)\n- `CLAUDE_CODE_OAUTH_TOKEN`: GitHub repo secret, OAuth token from Claude Code Pro Max\n- Bootstrap: `.claude/bootstrap.xml` — read at every session start\n- Research docs: `.claude/research/*.md` — architecture component specs\n---\nNOTE: The above items",
+    "prompt_index": 5,
+    "char_count": 8645,
+    "word_count": 1072,
+    "intent_signals": [
+      "pr",
+      "commit",
+      "fix",
+      "refactor",
+      "test",
+      "research",
+      "codegen",
+      "review"
+    ],
+    "mentions_files": [
+      "motion.dev",
+      "llms.txt",
+      "llms-full.txt",
+      "ci-failure-router.sh",
+      ".claude/scripts/ci-failure-router.sh",
+      "triage-ci-failure.py",
+      "validate-commit.sh",
+      "quality-gate.sh",
+      "pre-pr-gate.sh",
+      "ci-quality-gate.yml",
+      "triage-ci-failure.py",
+      "todos.jsonl",
+      ".claude/bootstrap.xml",
+      "//github.com/anthropics/claude-code/blob/main/CHANGELOG.md",
+      "agentcrawls.md",
+      "agentdata.md",
+      "agentevals.md",
+      "agentstreams.md",
+      "agentcommits.md",
+      "agentprompts.md"
+    ],
+    "mentions_urls": [
+      "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md"
+    ]
+  }
+}
