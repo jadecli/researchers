@@ -122,8 +122,8 @@ describe('Agent State Machine', () => {
 
 describe('Model Resolution', () => {
   it('resolves aliases to full model IDs', () => {
-    expect(resolveModel('opus')).toBe('claude-opus-4-20250514');
-    expect(resolveModel('sonnet')).toBe('claude-sonnet-4-20250514');
-    expect(resolveModel('haiku')).toBe('claude-haiku-3-5-20241022');
+    expect(resolveModel('opus')).toBe('claude-opus-4-6');
+    expect(resolveModel('sonnet')).toBe('claude-sonnet-4-6');
+    expect(resolveModel('haiku')).toBe('claude-haiku-4-5-20251001');
   });
 });

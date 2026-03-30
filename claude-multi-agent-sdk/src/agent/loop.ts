@@ -32,7 +32,7 @@ export type AgentLoopConfig = {
 };
 
 export const DEFAULT_CONFIG: Omit<AgentLoopConfig, 'systemPrompt' | 'tools'> = {
-  model: 'claude-sonnet-4-20250514',
+  model: 'claude-sonnet-4-6',
   maxTurns: 25,
   maxBudgetUsd: 5.0,
   maxTokens: 16384,
@@ -196,9 +196,9 @@ export async function runAgentLoop(
 
 // ── Cost Estimation ─────────────────────────────────────────────
 const RATES: Record<string, { input: number; output: number; cacheWrite: number; cacheRead: number }> = {
-  'claude-opus-4-20250514': { input: 15, output: 75, cacheWrite: 18.75, cacheRead: 1.5 },
-  'claude-sonnet-4-20250514': { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 },
-  'claude-haiku-3-5-20241022': { input: 0.8, output: 4, cacheWrite: 1.0, cacheRead: 0.08 },
+  'claude-opus-4-6': { input: 15, output: 75, cacheWrite: 18.75, cacheRead: 1.5 },
+  'claude-sonnet-4-6': { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 },
+  'claude-haiku-4-5-20251001': { input: 0.8, output: 4, cacheWrite: 1.0, cacheRead: 0.08 },
 };
 
 function estimateCost(
@@ -208,7 +208,7 @@ function estimateCost(
   cacheWriteTokens: number,
   cacheReadTokens: number,
 ): number {
-  const rate = RATES[model] ?? RATES['claude-sonnet-4-20250514']!;
+  const rate = RATES[model] ?? RATES['claude-sonnet-4-6']!;
   return (
     (inputTokens * rate.input) / 1_000_000 +
     (outputTokens * rate.output) / 1_000_000 +

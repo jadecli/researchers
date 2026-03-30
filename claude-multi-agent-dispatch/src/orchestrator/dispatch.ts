@@ -244,7 +244,7 @@ export class DispatchOrchestrator {
       tasks: classification.subtasks.map((subtask) => ({
         type: 'simple' as const,
         objective: subtask,
-        model: 'claude-sonnet-4-20250514' as const,
+        model: 'claude-sonnet-4-6' as const,
       })),
       budget: config.maxBudget,
       maxAgents: agents.length,

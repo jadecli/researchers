@@ -54,14 +54,14 @@ export class InferenceError extends Error {
 // ─── Cost Tracking ───────────────────────────────────────────────────────────
 
 const COST_PER_1K_INPUT: Record<ModelId, number> = {
-  'claude-opus-4-20250514': 0.015,
-  'claude-sonnet-4-20250514': 0.003,
+  'claude-opus-4-6': 0.015,
+  'claude-sonnet-4-6': 0.003,
   'claude-haiku-3-20250307': 0.00025,
 };
 
 const COST_PER_1K_OUTPUT: Record<ModelId, number> = {
-  'claude-opus-4-20250514': 0.075,
-  'claude-sonnet-4-20250514': 0.015,
+  'claude-opus-4-6': 0.075,
+  'claude-sonnet-4-6': 0.015,
   'claude-haiku-3-20250307': 0.00125,
 };
 

@@ -9,7 +9,7 @@ describe('Cost Calculation', () => {
   it('calculates Opus costs correctly', () => {
     // 1M input + 500K output tokens at Opus rates
     const cost = calculateSessionCost(
-      'claude-opus-4-20250514',
+      'claude-opus-4-6',
       1_000_000,
       500_000,
       0,
@@ -21,7 +21,7 @@ describe('Cost Calculation', () => {
 
   it('calculates Sonnet costs correctly', () => {
     const cost = calculateSessionCost(
-      'claude-sonnet-4-20250514',
+      'claude-sonnet-4-6',
       1_000_000,
       500_000,
       0,
@@ -33,7 +33,7 @@ describe('Cost Calculation', () => {
 
   it('calculates Haiku costs correctly', () => {
     const cost = calculateSessionCost(
-      'claude-haiku-3-5-20241022',
+      'claude-haiku-4-5-20251001',
       1_000_000,
       500_000,
       0,
@@ -45,14 +45,14 @@ describe('Cost Calculation', () => {
 
   it('includes cache costs', () => {
     const withCache = calculateSessionCost(
-      'claude-sonnet-4-20250514',
+      'claude-sonnet-4-6',
       100_000,
       50_000,
       200_000,
       150_000,
     );
     const withoutCache = calculateSessionCost(
-      'claude-sonnet-4-20250514',
+      'claude-sonnet-4-6',
       100_000,
       50_000,
       0,
@@ -64,7 +64,7 @@ describe('Cost Calculation', () => {
   it('falls back to Sonnet pricing for unknown models', () => {
     const cost = calculateSessionCost('unknown-model', 1_000_000, 0, 0, 0);
     const sonnetCost = calculateSessionCost(
-      'claude-sonnet-4-20250514',
+      'claude-sonnet-4-6',
       1_000_000,
       0,
       0,
@@ -78,9 +78,9 @@ describe('Model Pricing', () => {
   it('has pricing for all three models', () => {
     expect(MODEL_PRICING).toHaveLength(3);
     const models = MODEL_PRICING.map((p) => p.model);
-    expect(models).toContain('claude-opus-4-20250514');
-    expect(models).toContain('claude-sonnet-4-20250514');
-    expect(models).toContain('claude-haiku-3-5-20241022');
+    expect(models).toContain('claude-opus-4-6');
+    expect(models).toContain('claude-sonnet-4-6');
+    expect(models).toContain('claude-haiku-4-5-20251001');
   });
 
   it('Opus is most expensive', () => {
@@ -95,7 +95,7 @@ describe('Model Pricing', () => {
 
 describe('Session Tracker', () => {
   it('tracks token usage across turns', () => {
-    const tracker = new SessionTracker('session-1', 'claude-sonnet-4-20250514');
+    const tracker = new SessionTracker('session-1', 'claude-sonnet-4-6');
 
     tracker.recordTokenUsage(1000, 500);
     tracker.recordTokenUsage(2000, 1000);
@@ -108,7 +108,7 @@ describe('Session Tracker', () => {
   });
 
   it('tracks tool calls', () => {
-    const tracker = new SessionTracker('session-2', 'claude-sonnet-4-20250514');
+    const tracker = new SessionTracker('session-2', 'claude-sonnet-4-6');
 
     tracker.recordToolCall('WebSearch', 150, true);
     tracker.recordToolCall('Read', 50, true);
@@ -120,7 +120,7 @@ describe('Session Tracker', () => {
   });
 
   it('calculates current cost', () => {
-    const tracker = new SessionTracker('session-3', 'claude-sonnet-4-20250514');
+    const tracker = new SessionTracker('session-3', 'claude-sonnet-4-6');
     tracker.recordTokenUsage(100_000, 50_000); // $0.30 + $0.75 = $1.05
 
     const cost = tracker.getCurrentCost() as number;
@@ -128,7 +128,7 @@ describe('Session Tracker', () => {
   });
 
   it('produces end event with totals', () => {
-    const tracker = new SessionTracker('session-4', 'claude-sonnet-4-20250514');
+    const tracker = new SessionTracker('session-4', 'claude-sonnet-4-6');
     tracker.recordTokenUsage(1000, 500);
     tracker.recordToolCall('Read', 10, true);
 
@@ -142,9 +142,9 @@ describe('Session Tracker', () => {
   });
 
   it('tracks subagent spawns', () => {
-    const tracker = new SessionTracker('session-5', 'claude-opus-4-20250514');
-    tracker.recordSubagentSpawn('lead', 'worker-1', 'claude-sonnet-4-20250514');
-    tracker.recordSubagentSpawn('lead', 'worker-2', 'claude-sonnet-4-20250514');
+    const tracker = new SessionTracker('session-5', 'claude-opus-4-6');
+    tracker.recordSubagentSpawn('lead', 'worker-1', 'claude-sonnet-4-6');
+    tracker.recordSubagentSpawn('lead', 'worker-2', 'claude-sonnet-4-6');
 
     const spawns = tracker.getEvents().filter((e) => e.type === 'subagent_spawn');
     expect(spawns).toHaveLength(2);

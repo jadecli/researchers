@@ -18,9 +18,9 @@ describe('HeadlessRunner', () => {
 
   it('should include model flag', () => {
     const runner = new HeadlessRunner();
-    const args = runner.buildCommand('test', { model: 'claude-sonnet-4-20250514' });
+    const args = runner.buildCommand('test', { model: 'claude-sonnet-4-6' });
     expect(args).toContain('--model');
-    expect(args).toContain('claude-sonnet-4-20250514');
+    expect(args).toContain('claude-sonnet-4-6');
   });
 
   it('should include allowed tools', () => {
@@ -49,7 +49,7 @@ describe('HeadlessRunner', () => {
   it('should build full command with all options', () => {
     const runner = new HeadlessRunner();
     const args = runner.buildCommand('Do the thing', {
-      model: 'claude-opus-4-20250514',
+      model: 'claude-opus-4-6',
       allowedTools: ['Read', 'Write', 'Bash'],
       outputFormat: 'json',
     });
@@ -57,7 +57,7 @@ describe('HeadlessRunner', () => {
     expect(args).toContain('-p');
     expect(args).toContain('Do the thing');
     expect(args).toContain('--model');
-    expect(args).toContain('claude-opus-4-20250514');
+    expect(args).toContain('claude-opus-4-6');
     expect(args).toContain('--output-format');
     expect(args).toContain('stream-json');
     // 3 tools = 3 --allowedTools flags

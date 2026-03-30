@@ -18,7 +18,7 @@ import { toDispatchId, toUSD, toTokenCount, toAgentId } from '../src/types/core.
 
 const mockPlan: DispatchPlan = {
   id: toDispatchId('plan-1'),
-  tasks: [{ type: 'simple', objective: 'test', model: 'claude-sonnet-4-20250514' }],
+  tasks: [{ type: 'simple', objective: 'test', model: 'claude-sonnet-4-6' }],
   budget: toUSD(1.0),
   maxAgents: 3,
   timeline: {
