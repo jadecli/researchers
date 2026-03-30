@@ -24,6 +24,11 @@
             "type": "command",
             "command": ".claude/hooks/context-pre-pr.sh",
             "timeout": 60000
+          },
+          {
+            "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "bash .jade/hooks/pre-commit.sh"
           }
         ]
       },
@@ -62,23 +67,13 @@
         ]
       }
     ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash(git commit*)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .jade/hooks/pre-commit.sh"
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
-        "matcher": "Bash(gh pr create*)",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(gh pr create*)",
             "command": "bash .jade/hooks/pre-pr.sh"
           }
         ]

@@ -94,7 +94,11 @@ Check for:
 - No \`as any\` type assertions hiding unsoundness
 - \`strict: true\` + \`noUncheckedIndexedAccess: true\` compliance
 
-Report each finding with: severity, file_path, evidence, pass (boolean), score (0-1).`,
+For each finding, extract a direct quote from the source code as evidence.
+Only base findings on code you can directly reference — never infer violations
+without a supporting quote. If you cannot find evidence for a violation, state
+"No evidence found" and mark as pass. Report each finding with:
+severity, file_path, line_number, evidence (direct quote), pass (boolean), score (0-1).`,
     },
     {
       id: toAgentId('eval-warehouse'),
@@ -114,7 +118,11 @@ Check every SQL migration for:
 - BRIN indexes on append-only timestamp columns
 - Bloom indexes on multi-column filter fact tables
 
-Report each finding with: severity, file_path, evidence, pass (boolean), score (0-1).`,
+For each finding, extract the exact SQL statement or comment as evidence.
+Only report violations you can cite with a direct quote from the migration file.
+If a table lacks documentation but you cannot verify the intended grain, state
+"Insufficient documentation to assess" rather than guessing.
+Report each finding with: severity, file_path, line_number, evidence (direct quote), pass (boolean), score (0-1).`,
     },
     {
       id: toAgentId('eval-security'),
@@ -134,7 +142,12 @@ Check for:
 - Path traversal in file operations
 - Insecure deserialization of untrusted JSON
 
-Report each finding with: severity, file_path, evidence, pass (boolean), score (0-1).`,
+For each finding, provide the exact code snippet that demonstrates the vulnerability.
+Only report vulnerabilities with concrete evidence — do not speculate about
+theoretical risks without a specific code path. If you are unsure whether a
+pattern is exploitable, state "Potential risk, requires manual verification"
+and set severity to "info" rather than overstating confidence.
+Report each finding with: severity, file_path, line_number, evidence (direct quote), pass (boolean), score (0-1).`,
     },
     {
       id: toAgentId('eval-doc-freshness'),
@@ -151,7 +164,11 @@ Check for:
 - Stale URLs pointing to moved or deleted pages
 - Version pins that lag behind current releases
 
-Report each finding with: severity, file_path, evidence, pass (boolean), score (0-1).`,
+For each finding, extract the exact version string, URL, or reference as evidence.
+Only report staleness you can verify with a direct quote from the document.
+If you cannot determine whether a reference is current or stale, state
+"Unable to verify currency — requires manual check" and set severity to "info".
+Report each finding with: severity, file_path, evidence (direct quote), pass (boolean), score (0-1).`,
     },
     {
       id: toAgentId('eval-test-coverage'),
@@ -169,7 +186,12 @@ Check for:
 - Tests that assert on implementation details rather than behavior
 - Mock-heavy tests that don't test real integrations
 
-Report each finding with: severity, file_path, evidence, pass (boolean), score (0-1).`,
+For each finding, extract the exact test name, assertion, or coverage suppression
+comment as evidence. Only report gaps you can cite with a direct quote from the
+test file or source file. If a source file has no test but you cannot determine
+whether it needs one (e.g., type-only files), state "No tests required for
+type-only module" and mark as pass.
+Report each finding with: severity, file_path, evidence (direct quote), pass (boolean), score (0-1).`,
     },
   ] as const;
 }

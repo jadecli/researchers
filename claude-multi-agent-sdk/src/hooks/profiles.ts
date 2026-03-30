@@ -3,28 +3,130 @@
 // Claude Code hooks fire at lifecycle points and can block, modify,
 // or inject context. Four types: command (shell), http (webhook),
 // prompt (single-turn LLM eval), agent (multi-turn subagent verifier).
+//
+// Reference: https://code.claude.com/docs/en/hooks
+// All 25 hook events documented at the URL above.
+
+// ── Official Tool Names (31 tools from docs) ──────────────────
+// Used by bloom filter routing to validate tool dispatch targets.
+export const CLAUDE_CODE_TOOLS = [
+  'Agent', 'AskUserQuestion', 'Bash', 'CronCreate', 'CronDelete', 'CronList',
+  'Edit', 'EnterPlanMode', 'EnterWorktree', 'ExitPlanMode', 'ExitWorktree',
+  'Glob', 'Grep', 'ListMcpResourcesTool', 'LSP', 'NotebookEdit', 'PowerShell',
+  'Read', 'ReadMcpResourceTool', 'Skill', 'TaskCreate', 'TaskGet', 'TaskList',
+  'TaskOutput', 'TaskStop', 'TaskUpdate', 'TodoWrite', 'ToolSearch',
+  'WebFetch', 'WebSearch', 'Write',
+] as const;
+
+export type ClaudeCodeToolName = (typeof CLAUDE_CODE_TOOLS)[number];
+
+// Events that do NOT support matchers (matcher is silently ignored)
+export const EVENTS_WITHOUT_MATCHER: readonly HookEvent[] = [
+  'UserPromptSubmit', 'Stop', 'TeammateIdle', 'TaskCreated',
+  'TaskCompleted', 'WorktreeCreate', 'WorktreeRemove', 'CwdChanged',
+] as const;
 
 // ── Hook Configuration Types ────────────────────────────────────
+
+/** All 25 Claude Code hook events (from official docs) */
 export type HookEvent =
+  // Session lifecycle
+  | 'SessionStart'
+  | 'SessionEnd'
+  // User interaction
+  | 'UserPromptSubmit'
+  // Tool lifecycle
   | 'PreToolUse'
+  | 'PermissionRequest'
   | 'PostToolUse'
   | 'PostToolUseFailure'
+  // Subagent lifecycle
   | 'SubagentStart'
   | 'SubagentStop'
-  | 'Stop'
+  // Task lifecycle
+  | 'TaskCreated'
   | 'TaskCompleted'
-  | 'UserPromptSubmit'
-  | 'SessionStart';
+  // Stop lifecycle
+  | 'Stop'
+  | 'StopFailure'
+  // Team coordination
+  | 'TeammateIdle'
+  // Notification
+  | 'Notification'
+  // Instructions
+  | 'InstructionsLoaded'
+  // Config
+  | 'ConfigChange'
+  // File system
+  | 'CwdChanged'
+  | 'FileChanged'
+  // Worktree
+  | 'WorktreeCreate'
+  | 'WorktreeRemove'
+  // Context compaction
+  | 'PreCompact'
+  | 'PostCompact'
+  // MCP elicitation
+  | 'Elicitation'
+  | 'ElicitationResult';
 
+/**
+ * Hook types matching official Claude Code docs.
+ * - command: shell script, receives JSON on stdin, exit 0/2
+ * - http: POST webhook, receives JSON body, returns JSON
+ * - prompt: single-turn LLM eval, $ARGUMENTS replaced with input JSON
+ * - agent: multi-turn subagent verifier with tool access
+ */
 export type HookType =
-  | { readonly type: 'command'; readonly command: string; readonly timeout?: number }
-  | { readonly type: 'http'; readonly url: string; readonly method: 'POST'; readonly headers?: Record<string, string> }
-  | { readonly type: 'prompt'; readonly prompt: string; readonly model?: string }
-  | { readonly type: 'agent'; readonly agentPrompt: string; readonly tools: ReadonlyArray<string> };
+  | {
+      readonly type: 'command';
+      readonly command: string;
+      readonly timeout?: number;     // default 600s
+      readonly async?: boolean;       // fire-and-forget
+      readonly shell?: 'bash' | 'powershell';
+    }
+  | {
+      readonly type: 'http';
+      readonly url: string;
+      readonly headers?: Record<string, string>;
+      readonly allowedEnvVars?: readonly string[];
+      readonly timeout?: number;     // default 30s
+    }
+  | {
+      readonly type: 'prompt';
+      readonly prompt: string;        // $ARGUMENTS replaced with input JSON
+      readonly model?: string;
+      readonly timeout?: number;     // default 30s
+    }
+  | {
+      readonly type: 'agent';
+      readonly prompt: string;        // $ARGUMENTS replaced with input JSON
+      readonly model?: string;
+      readonly timeout?: number;     // default 60s
+    };
 
 export type HookRule = {
-  readonly matcher: string;
-  readonly hooks: ReadonlyArray<HookType>;
+  /** Regex filter at the group level. What it matches depends on the event:
+   *  - PreToolUse/PostToolUse/PostToolUseFailure/PermissionRequest: tool name
+   *  - SessionStart: "startup"|"resume"|"clear"|"compact"
+   *  - SessionEnd: "clear"|"resume"|"logout"|"prompt_input_exit"|"other"
+   *  - SubagentStart/SubagentStop: agent type name
+   *  - FileChanged: filename (basename)
+   *  - StopFailure: error type
+   *  - Notification/ConfigChange/InstructionsLoaded/PreCompact/PostCompact: source type
+   *  - Elicitation/ElicitationResult: MCP server name
+   *  Omit or "" to match all. Ignored on events without matcher support. */
+  readonly matcher?: string;
+  readonly hooks: ReadonlyArray<HookType & {
+    /** Permission rule syntax filter on individual hooks. Only evaluated on tool events
+     *  (PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest).
+     *  On other events, a hook with `if` set never runs.
+     *  Examples: "Bash(git commit*)", "Edit(*.ts)", "Bash(rm *)" */
+    readonly if?: string;
+    readonly statusMessage?: string;
+    /** If true, runs only once per session then is removed. Skills only. */
+    readonly once?: boolean;
+  }>;
 };
 
 export type HookProfile = Partial<Record<HookEvent, ReadonlyArray<HookRule>>>;
@@ -75,10 +177,9 @@ exit 0`,
       ],
     },
   ],
-  // Snapshot state before compaction
+  // Block stop if research tasks not complete (Stop has no matcher — always fires)
   Stop: [
     {
-      matcher: '.*',
       hooks: [
         {
           type: 'command',
@@ -149,9 +250,9 @@ export const ciHooks: HookProfile = {
       ],
     },
   ],
+  // Enforce structured findings output (Stop has no matcher — always fires)
   Stop: [
     {
-      matcher: '.*',
       hooks: [
         {
           type: 'command',
