@@ -183,20 +183,20 @@ export function handleAgentState(state: AgentState): string {
 
 // ── Model Configuration ─────────────────────────────────────────
 export type ModelId =
-  | 'claude-opus-4-20250514'
-  | 'claude-sonnet-4-20250514'
-  | 'claude-haiku-3-5-20241022';
+  | 'claude-opus-4-6'
+  | 'claude-sonnet-4-6'
+  | 'claude-haiku-4-5-20251001';
 
 export type ModelAlias = 'opus' | 'sonnet' | 'haiku';
 
 export function resolveModel(alias: ModelAlias): ModelId {
   switch (alias) {
     case 'opus':
-      return 'claude-opus-4-20250514';
+      return 'claude-opus-4-6';
     case 'sonnet':
-      return 'claude-sonnet-4-20250514';
+      return 'claude-sonnet-4-6';
     case 'haiku':
-      return 'claude-haiku-3-5-20241022';
+      return 'claude-haiku-4-5-20251001';
     default:
       return assertNever(alias);
   }

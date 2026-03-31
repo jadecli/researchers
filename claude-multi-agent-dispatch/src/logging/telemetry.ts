@@ -13,13 +13,13 @@ export const MODEL_PRICING: Record<
     cacheWritePerMillion: number;
   }
 > = {
-  'claude-opus-4-20250514': {
+  'claude-opus-4-6': {
     inputPerMillion: 15.0,
     outputPerMillion: 75.0,
     cacheReadPerMillion: 1.5,
     cacheWritePerMillion: 18.75,
   },
-  'claude-sonnet-4-20250514': {
+  'claude-sonnet-4-6': {
     inputPerMillion: 3.0,
     outputPerMillion: 15.0,
     cacheReadPerMillion: 0.3,

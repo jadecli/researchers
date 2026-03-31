@@ -45,6 +45,16 @@
             "command": "bash .jade/hooks/session-start.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .jade/hooks/pre-commit.sh",
+            "if": "Bash(git commit*)"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -62,24 +72,14 @@
         ]
       }
     ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash(git commit*)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .jade/hooks/pre-commit.sh"
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
-        "matcher": "Bash(gh pr create*)",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "bash .jade/hooks/pre-pr.sh"
+            "command": "bash .jade/hooks/pre-pr.sh",
+            "if": "Bash(gh pr create*)"
           }
         ]
       }

@@ -135,15 +135,15 @@ export function assertNever(value: never): never {
 // ─── Model Types ─────────────────────────────────────────────────────────────
 
 export type ModelId =
-  | 'claude-opus-4-20250514'
-  | 'claude-sonnet-4-20250514'
+  | 'claude-opus-4-6'
+  | 'claude-sonnet-4-6'
   | 'claude-haiku-3-20250307';
 
 export type ModelAlias = 'opus' | 'sonnet' | 'haiku';
 
 const MODEL_ALIAS_MAP: Record<ModelAlias, ModelId> = {
-  opus: 'claude-opus-4-20250514',
-  sonnet: 'claude-sonnet-4-20250514',
+  opus: 'claude-opus-4-6',
+  sonnet: 'claude-sonnet-4-6',
   haiku: 'claude-haiku-3-20250307',
 };
 

@@ -1,0 +1,88 @@
+# AgentTasks
+
+> Data-driven task orchestration for AI agents. Built with Next.js, Scrapy, and Claude Code.
+
+## Core Pages
+- / : Home — exploration cards, data sources, aggregate statistics
+- /tasks : Interactive task management queue with real-time status
+- /rounds : Quality progression across 10 iterative crawl rounds
+- /agent-loop : Animated agent loop visualization with motion.dev
+- /specification : TodoWrite and TaskCreate JSON schemas
+- /what-are-tasks : Conceptual documentation on agent task design
+- /experiments : A/B experiment tracking and variant management
+- /experiments/[id] : Individual experiment detail view
+
+## Task Creation Guide
+- /task-creation : Task creation overview and getting started
+- /task-creation/quickstart : Step-by-step quickstart tutorial
+- /task-creation/best-practices : Task design best practices
+- /task-creation/evaluating-tasks : How to evaluate task quality
+- /task-creation/optimizing-targets : Target URL optimization strategies
+- /task-creation/using-spiders : Spider selection and configuration
+
+## Scrapy Documentation Mirror
+- /scrapy : Scrapy documentation index
+
+### First Steps
+- /scrapy/first-steps/installation : Installing Scrapy
+- /scrapy/first-steps/tutorial : Scrapy tutorial
+- /scrapy/first-steps/examples : Example spiders and projects
+- /scrapy/first-steps/at-a-glance : Scrapy at a glance overview
+
+### Basic Concepts
+- /scrapy/basic-concepts/spiders : Writing spiders
+- /scrapy/basic-concepts/selectors : CSS and XPath selectors
+- /scrapy/basic-concepts/items : Defining items
+- /scrapy/basic-concepts/item-loaders : Loading items with processors
+- /scrapy/basic-concepts/item-pipeline : Processing pipeline stages
+- /scrapy/basic-concepts/feed-exports : Exporting data to feeds
+- /scrapy/basic-concepts/requests-responses : HTTP request/response handling
+- /scrapy/basic-concepts/link-extractors : Extracting links from pages
+- /scrapy/basic-concepts/settings : Scrapy settings reference
+- /scrapy/basic-concepts/shell : Interactive Scrapy shell
+- /scrapy/basic-concepts/command-line : Command line tool reference
+- /scrapy/basic-concepts/exceptions : Exception classes
+
+### Extending Scrapy
+- /scrapy/extending/architecture : Scrapy architecture overview
+- /scrapy/extending/components : Component design patterns
+- /scrapy/extending/core-api : Core API reference
+- /scrapy/extending/download-handlers : Custom download handlers
+- /scrapy/extending/downloader-middleware : Downloader middleware
+- /scrapy/extending/extensions : Writing extensions
+- /scrapy/extending/item-exporters : Custom item exporters
+- /scrapy/extending/scheduler : Scheduler internals
+- /scrapy/extending/signals : Scrapy signal system
+- /scrapy/extending/spider-middleware : Spider middleware
+- /scrapy/extending/addons : Scrapy addons system
+
+### Solving Problems
+- /scrapy/solving-problems/asyncio : Async I/O integration
+- /scrapy/solving-problems/autothrottle : Automatic throttling
+- /scrapy/solving-problems/benchmarking : Performance benchmarking
+- /scrapy/solving-problems/broad-crawls : Broad crawl strategies
+- /scrapy/solving-problems/common-practices : Common crawling practices
+- /scrapy/solving-problems/contracts : Spider contracts and testing
+- /scrapy/solving-problems/coroutines : Coroutine-based spiders
+- /scrapy/solving-problems/debugging-spiders : Debugging techniques
+- /scrapy/solving-problems/deploying : Deployment strategies
+- /scrapy/solving-problems/dev-tools : Developer tools integration
+- /scrapy/solving-problems/dynamic-content : Handling dynamic content
+- /scrapy/solving-problems/faq : Frequently asked questions
+- /scrapy/solving-problems/files-images : File and image pipelines
+- /scrapy/solving-problems/jobs : Job management and persistence
+- /scrapy/solving-problems/memory-leaks : Diagnosing memory leaks
+
+### Built-in Services
+- /scrapy/built-in/logging : Logging configuration
+- /scrapy/built-in/stats-collection : Statistics collection
+- /scrapy/built-in/telnet-console : Telnet console
+
+### Reference
+- /scrapy/reference/contributing : Contributing guide
+- /scrapy/reference/release-notes : Release notes
+- /scrapy/reference/versioning : Versioning policy
+
+## API Endpoints
+- /api/pages : Pages data endpoint (GET)
+- /api/tasks : Tasks management endpoint (GET/POST)

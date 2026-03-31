@@ -106,7 +106,7 @@ function createDispatchServer(): McpServer {
     },
     async ({ task, model, maxAgents }) => {
       const agentLimit = maxAgents ?? 3;
-      const selectedModel = model ?? 'claude-sonnet-4-20250514';
+      const selectedModel = model ?? 'claude-sonnet-4-6';
 
       const plan = {
         id: `dispatch-${Date.now()}`,

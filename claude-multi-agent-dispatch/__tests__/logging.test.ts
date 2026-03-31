@@ -202,7 +202,7 @@ describe('DispatchTracker', () => {
     const tracker = new DispatchTracker();
 
     tracker.recordUsage(
-      'claude-sonnet-4-20250514',
+      'claude-sonnet-4-6',
       1000,
       500,
       200,
@@ -239,7 +239,7 @@ describe('DispatchTracker', () => {
     const tracker = new DispatchTracker();
     tracker.recordRoundStart('r-1', 'Quality Scoring');
     tracker.recordUsage(
-      'claude-opus-4-20250514',
+      'claude-opus-4-6',
       2000,
       1000,
       0,
@@ -257,11 +257,11 @@ describe('DispatchTracker', () => {
 
   it('should calculate costs correctly for all models', () => {
     // Opus: $15/M input, $75/M output
-    const opusCost = calculateCost('claude-opus-4-20250514', 1_000_000, 1_000_000);
+    const opusCost = calculateCost('claude-opus-4-6', 1_000_000, 1_000_000);
     expect(opusCost).toBeCloseTo(90, 0);
 
     // Sonnet: $3/M input, $15/M output
-    const sonnetCost = calculateCost('claude-sonnet-4-20250514', 1_000_000, 1_000_000);
+    const sonnetCost = calculateCost('claude-sonnet-4-6', 1_000_000, 1_000_000);
     expect(sonnetCost).toBeCloseTo(18, 0);
 
     // Haiku: $0.25/M input, $1.25/M output
@@ -271,7 +271,7 @@ describe('DispatchTracker', () => {
 
   it('should include cache pricing', () => {
     const costWithCache = calculateCost(
-      'claude-sonnet-4-20250514',
+      'claude-sonnet-4-6',
       0,
       0,
       1_000_000,

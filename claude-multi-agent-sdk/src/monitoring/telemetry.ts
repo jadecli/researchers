@@ -63,21 +63,21 @@ export type ModelPricing = {
 
 export const MODEL_PRICING: ReadonlyArray<ModelPricing> = [
   {
-    model: 'claude-opus-4-20250514',
+    model: 'claude-opus-4-6',
     inputPerMillion: 15,
     outputPerMillion: 75,
     cacheWritePerMillion: 18.75,
     cacheReadPerMillion: 1.5,
   },
   {
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     inputPerMillion: 3,
     outputPerMillion: 15,
     cacheWritePerMillion: 3.75,
     cacheReadPerMillion: 0.3,
   },
   {
-    model: 'claude-haiku-3-5-20241022',
+    model: 'claude-haiku-4-5-20251001',
     inputPerMillion: 0.8,
     outputPerMillion: 4,
     cacheWritePerMillion: 1.0,

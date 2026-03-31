@@ -110,6 +110,18 @@ fi
 
 echo "---"
 
+# ── 9b. Neon session briefing (if DATABASE_URL set) ─────────
+if command -v psql >/dev/null 2>&1 && [ -n "${DATABASE_URL:-}" ]; then
+  BRIEFING=$(psql "$DATABASE_URL" -t -A -c \
+    "SELECT row_to_json(t) FROM agentdata.session_briefing t" 2>/dev/null || true)
+  if [ -n "$BRIEFING" ]; then
+    echo ""
+    echo "--- Neon Session Briefing ---"
+    echo "  $BRIEFING"
+    echo "---"
+  fi
+fi
+
 # ── 10. Available headless scripts ───────────────────────────
 echo ""
 echo "--- Available Headless Scripts ---"

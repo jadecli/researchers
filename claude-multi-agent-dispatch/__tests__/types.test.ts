@@ -207,11 +207,11 @@ describe('assertNever', () => {
 
 describe('resolveModel', () => {
   it('resolves opus alias', () => {
-    expect(resolveModel('opus')).toBe('claude-opus-4-20250514');
+    expect(resolveModel('opus')).toBe('claude-opus-4-6');
   });
 
   it('resolves sonnet alias', () => {
-    expect(resolveModel('sonnet')).toBe('claude-sonnet-4-20250514');
+    expect(resolveModel('sonnet')).toBe('claude-sonnet-4-6');
   });
 
   it('resolves haiku alias', () => {
@@ -315,7 +315,7 @@ describe('DispatchTask discriminated union', () => {
     const task: DispatchTask = {
       type: 'simple',
       objective: 'Extract types from repo',
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
     };
     expect(task.type).toBe('simple');
     expect(task.objective).toBe('Extract types from repo');
@@ -337,8 +337,8 @@ describe('DispatchTask discriminated union', () => {
     const task: DispatchTask = {
       type: 'sequential',
       tasks: [
-        { type: 'simple', objective: 'Step 1', model: 'claude-sonnet-4-20250514' },
-        { type: 'simple', objective: 'Step 2', model: 'claude-sonnet-4-20250514' },
+        { type: 'simple', objective: 'Step 1', model: 'claude-sonnet-4-6' },
+        { type: 'simple', objective: 'Step 2', model: 'claude-sonnet-4-6' },
       ],
     };
     expect(task.type).toBe('sequential');
@@ -348,7 +348,7 @@ describe('DispatchTask discriminated union', () => {
     const task: DispatchTask = {
       type: 'conditional',
       condition: 'budget > $1.00',
-      ifTrue: { type: 'simple', objective: 'Deep analysis', model: 'claude-opus-4-20250514' },
+      ifTrue: { type: 'simple', objective: 'Deep analysis', model: 'claude-opus-4-6' },
       ifFalse: { type: 'simple', objective: 'Quick scan', model: 'claude-haiku-3-20250307' },
     };
     expect(task.type).toBe('conditional');
@@ -371,7 +371,7 @@ describe('DispatchTask discriminated union', () => {
           type: 'conditional',
           condition: 'quality > 0.7',
           ifTrue: { type: 'simple', objective: 'Done', model: 'claude-haiku-3-20250307' },
-          ifFalse: { type: 'simple', objective: 'Retry', model: 'claude-sonnet-4-20250514' },
+          ifFalse: { type: 'simple', objective: 'Retry', model: 'claude-sonnet-4-6' },
         },
       ],
     };
