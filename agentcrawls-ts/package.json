@@ -14,7 +14,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "0.80.0",
     "@ax-llm/ax": "^19.0.37",
-    "@modelcontextprotocol/sdk": "1.28.0",
+    "@modelcontextprotocol/sdk": "1.29.0",
     "bloom-filters": "^3.0.4",
     "crawlee": "^3.12.0",
     "pg": "^8.13.0",
