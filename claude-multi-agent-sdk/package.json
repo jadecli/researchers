@@ -14,7 +14,7 @@
     "mcp:start": "npx tsx src/mcp/server.ts"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.2.86",
+    "@anthropic-ai/claude-agent-sdk": "0.2.91",
     "@anthropic-ai/sdk": "0.80.0",
     "@anthropic-ai/tokenizer": "0.0.4",
     "@modelcontextprotocol/sdk": "1.28.0",
