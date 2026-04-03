@@ -20,7 +20,7 @@ jobs:
         working-directory: .jade
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - run: npm install
@@ -35,7 +35,7 @@ jobs:
         working-directory: claude-multi-agent-dispatch
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - run: npm ci --legacy-peer-deps
@@ -51,7 +51,7 @@ jobs:
         working-directory: claude-multi-agent-sdk
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - run: npm ci --legacy-peer-deps
@@ -66,7 +66,7 @@ jobs:
     needs: [jade-typecheck]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Install .jade/ dependencies
@@ -121,7 +121,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Install dependencies
