@@ -5,8 +5,13 @@ configurable time window. Identifies the largest gaps where agent overhead
 is disproportionate to crawl throughput.
 
 Integrates as a Scrapy extension — hooks into spider_opened, item_scraped,
-spider_closed signals to count pages. Agent tool call counts are loaded from
-the SDK telemetry JSONL logs emitted by the agent loop.
+spider_closed signals to count pages. Tool call counts come from two sources:
+1. Live: spiders call `record_tool_call()` during crawl (precise per-window)
+2. Fallback: SDK telemetry JSONL logs (proportional distribution)
+
+Spiders that track tool calls internally (e.g., SpotifyStatsSpider) should
+call `crawler.stats.inc_value('efficiency/tool_calls')` on each API call.
+The extension reads these stats for precise per-window attribution.
 """
 
 from __future__ import annotations
@@ -22,6 +27,10 @@ from scrapy import Spider, signals
 from scrapy.crawler import Crawler
 
 
+# Custom signal for spiders to report tool calls in real time
+tool_call_made = object()
+
+
 @dataclass
 class TimeWindow:
     """A single time window sample in the efficiency time series."""
@@ -32,6 +41,7 @@ class TimeWindow:
     tool_calls: int = 0
     agent_turns: int = 0
     spider_name: str = ""
+    variant: str = ""
 
     @property
     def ratio(self) -> float:
@@ -50,7 +60,7 @@ class TimeWindow:
         return self.pages_crawled / d if d > 0 else 0.0
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d = {
             "window_start": datetime.fromtimestamp(self.window_start, tz=timezone.utc).isoformat(),
             "window_end": datetime.fromtimestamp(self.window_end, tz=timezone.utc).isoformat(),
             "duration_s": round(self.duration_s, 2),
@@ -61,6 +71,9 @@ class TimeWindow:
             "pages_per_second": round(self.pages_per_second, 4),
             "spider_name": self.spider_name,
         }
+        if self.variant:
+            d["variant"] = self.variant
+        return d
 
 
 @dataclass
@@ -84,6 +97,10 @@ class EfficiencyTracker:
     Usage as Scrapy extension:
         EXTENSIONS = {"scrapy_researchers.metrics.efficiency_tracker.EfficiencyTracker": 400}
         EFFICIENCY_WINDOW_SECONDS = 60  # 1-minute buckets
+
+    Spiders can report tool calls in real time via:
+        crawler.signals.send_catch_log(tool_call_made, spider=self)
+    This gives precise per-window attribution instead of proportional fallback.
     """
 
     def __init__(
@@ -99,6 +116,7 @@ class EfficiencyTracker:
         self.windows: list[TimeWindow] = []
         self._current_window: TimeWindow | None = None
         self._spider_start: float = 0.0
+        self._live_tool_calls: int = 0  # Count of tool calls received via signal
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> "EfficiencyTracker":
@@ -115,19 +133,47 @@ class EfficiencyTracker:
         crawler.signals.connect(ext.spider_opened, signal=signals.spider_opened)
         crawler.signals.connect(ext.item_scraped, signal=signals.item_scraped)
         crawler.signals.connect(ext.spider_closed, signal=signals.spider_closed)
+        crawler.signals.connect(ext.on_tool_call, signal=tool_call_made)
         return ext
 
     def spider_opened(self, spider: Spider) -> None:
         self._spider_start = time.monotonic()
+        variant = getattr(spider, "variant", "")
         self._current_window = TimeWindow(
             window_start=time.time(),
             window_end=0.0,
             spider_name=spider.name,
+            variant=variant,
         )
         self.windows = []
+        self._live_tool_calls = 0
         spider.logger.info(
             f"EfficiencyTracker: tracking {self.window_seconds}s windows"
+            + (f" (variant={variant})" if variant else "")
         )
+
+    def on_tool_call(self, spider: Spider) -> None:
+        """Receive a live tool call event from a spider."""
+        now = time.time()
+        self._live_tool_calls += 1
+        w = self._current_window
+        if w is None:
+            return
+
+        # Roll to new window if needed
+        if now - w.window_start >= self.window_seconds:
+            w.window_end = now
+            self.windows.append(w)
+            variant = getattr(spider, "variant", "")
+            self._current_window = TimeWindow(
+                window_start=now,
+                window_end=0.0,
+                spider_name=spider.name,
+                variant=variant,
+            )
+            w = self._current_window
+
+        w.tool_calls += 1
 
     def item_scraped(self, item: dict[str, Any], spider: Spider) -> None:
         now = time.time()
@@ -139,10 +185,12 @@ class EfficiencyTracker:
         if now - w.window_start >= self.window_seconds:
             w.window_end = now
             self.windows.append(w)
+            variant = getattr(spider, "variant", "")
             self._current_window = TimeWindow(
                 window_start=now,
                 window_end=0.0,
                 spider_name=spider.name,
+                variant=variant,
             )
             w = self._current_window
 
@@ -152,13 +200,17 @@ class EfficiencyTracker:
         now = time.time()
 
         # Finalize current window
-        if self._current_window and self._current_window.pages_crawled > 0:
+        if self._current_window and (
+            self._current_window.pages_crawled > 0
+            or self._current_window.tool_calls > 0
+        ):
             self._current_window.window_end = now
             self.windows.append(self._current_window)
         self._current_window = None
 
-        # Load agent tool call counts from telemetry logs
-        self._load_agent_tool_calls(spider)
+        # Only fall back to telemetry logs if no live tool calls were received
+        if self._live_tool_calls == 0:
+            self._load_agent_tool_calls(spider)
 
         # Compute gaps
         gaps = self.find_largest_gaps()
@@ -173,6 +225,7 @@ class EfficiencyTracker:
             f"EfficiencyTracker: {len(self.windows)} windows, "
             f"{total_pages} pages, {total_tools} tool calls, "
             f"overall ratio={overall_ratio:.2f}"
+            + (f" (live tracking)" if self._live_tool_calls > 0 else " (telemetry fallback)")
         )
         if gaps:
             spider.logger.info(

@@ -4,8 +4,17 @@ Targets repos focused on statistics, experimentation, A/B testing, metrics,
 and data infrastructure. Supports A/B experiment variants via the
 `variant` parameter for split-testing crawl strategies.
 
+Variant strategies (inspired by Claude API cookbook patterns):
+- control: Standard sequential crawl, one API call per file
+- thinking: Deeper analysis — fetches DEEP_FILES for richer context
+- tool_search: Targeted file discovery — fetches tree first, cherry-picks
+  only stat-relevant source files (reduces wasted API calls)
+- ptc: Batch fetching — uses git tree API to fetch entire repo tree in one
+  call, then selectively decodes files (minimizes total API round-trips)
+
 Uses the same gh api approach as GitHubOrgSpider but with Spotify-specific
-target files and package category classification.
+target files and package category classification. Emits live tool_call_made
+signals for precise per-window efficiency tracking.
 """
 
 from __future__ import annotations
@@ -22,6 +31,7 @@ from typing import Any, Generator
 import scrapy
 from scrapy.http import Response
 
+from scrapy_researchers.metrics.efficiency_tracker import tool_call_made
 from scrapy_researchers.spiders.base_spider import BaseResearchSpider
 
 
@@ -146,9 +156,12 @@ class SpotifyStatsSpider(BaseResearchSpider):
         self._variant_start = time.monotonic()
 
     def _gh_api(self, endpoint: str) -> dict | list | None:
-        """Call GitHub API via gh CLI."""
+        """Call GitHub API via gh CLI. Emits tool_call_made signal for live tracking."""
         self.rate_limiter.wait()
         self._tool_calls += 1
+        # Emit live signal for EfficiencyTracker per-window attribution
+        if self.crawler:
+            self.crawler.signals.send_catch_log(tool_call_made, spider=self)
         try:
             result = subprocess.run(
                 ["gh", "api", endpoint],
@@ -275,7 +288,16 @@ class SpotifyStatsSpider(BaseResearchSpider):
     def _crawl_repo(
         self, repo: dict, category: str
     ) -> Generator[dict[str, Any], None, None]:
-        """Crawl a single repo with variant-specific strategy."""
+        """Crawl a single repo with variant-specific strategy.
+
+        Variant strategies:
+        - control: Sequential file-by-file fetch (TARGET_FILES only)
+        - thinking: Deeper analysis (TARGET_FILES + DEEP_FILES)
+        - tool_search: Fetch repo tree first, cherry-pick stat-relevant files
+          (1 tree call instead of N miss calls)
+        - ptc: Batch fetch via recursive tree API — 1 API call for full tree,
+          then decode blobs for matching files (minimizes round-trips)
+        """
         repo_name = repo.get("name", "")
         default_branch = repo.get("default_branch", "main")
         language = repo.get("language") or "unknown"
@@ -283,11 +305,26 @@ class SpotifyStatsSpider(BaseResearchSpider):
         description = repo.get("description") or ""
         topics = repo.get("topics", [])
 
+        # PTC variant: batch fetch entire tree in 1 API call
+        if self.variant == "ptc":
+            yield from self._crawl_repo_ptc(
+                repo_name, default_branch, language, stars,
+                description, category, topics,
+            )
+            return
+
+        # tool_search variant: targeted tree + selective fetch
+        if self.variant == "tool_search":
+            yield from self._crawl_repo_tool_search(
+                repo_name, default_branch, language, stars,
+                description, category, topics,
+            )
+            return
+
+        # control / thinking: sequential file-by-file
         files_fetched = 0
         target_files = list(self.TARGET_FILES)
-
-        # Variant-specific file selection
-        if self.variant in ("thinking", "ptc"):
+        if self.variant == "thinking":
             target_files.extend(self.DEEP_FILES)
 
         for filename in target_files:
@@ -309,12 +346,221 @@ class SpotifyStatsSpider(BaseResearchSpider):
                     topics=topics,
                 )
 
-        # For tool_search and ptc variants: also fetch source files
-        if self.variant in ("tool_search", "ptc") and files_fetched < self.max_files_per_repo:
+    def _crawl_repo_ptc(
+        self,
+        repo_name: str,
+        default_branch: str,
+        language: str,
+        stars: int,
+        description: str,
+        category: str,
+        topics: list[str],
+    ) -> Generator[dict[str, Any], None, None]:
+        """PTC strategy: 1 recursive tree call, then selective blob fetches.
+
+        Inspired by Programmatic Tool Calling cookbook — minimize round-trips
+        by fetching the full tree in one call, then only fetching blobs for
+        files we actually want. Saves N-1 API calls for repos where most
+        TARGET_FILES don't exist.
+        """
+        # 1 API call: get recursive tree
+        tree_data = self._gh_api(
+            f"repos/{self.org}/{repo_name}/git/trees/{default_branch}?recursive=1"
+        )
+        if not tree_data or not isinstance(tree_data, dict):
+            return
+
+        tree_entries = tree_data.get("tree", [])
+        # Build path→sha index
+        path_index: dict[str, str] = {}
+        for entry in tree_entries:
+            if entry.get("type") == "blob":
+                path_index[entry["path"]] = entry["sha"]
+
+        # Determine which files to fetch
+        all_targets = list(self.TARGET_FILES) + list(self.DEEP_FILES)
+        # Also add stat-relevant source files from tree
+        stat_source_files = self._find_stat_relevant_files(tree_entries)
+
+        files_fetched = 0
+        # Fetch target files first (by blob SHA — avoids contents API overhead)
+        for filename in all_targets:
+            if files_fetched >= self.max_files_per_repo:
+                break
+            sha = path_index.get(filename)
+            if not sha:
+                continue
+            content = self._fetch_blob(repo_name, sha)
+            if content is not None:
+                files_fetched += 1
+                self._pages_crawled += 1
+                yield self._build_item(
+                    repo_name=repo_name,
+                    file_path=filename,
+                    content=content,
+                    language=language,
+                    stars=stars,
+                    description=description,
+                    category=category,
+                    topics=topics,
+                )
+
+        # Then fetch stat-relevant source files
+        for filepath, sha in stat_source_files:
+            if files_fetched >= self.max_files_per_repo:
+                break
+            content = self._fetch_blob(repo_name, sha)
+            if content is not None:
+                files_fetched += 1
+                self._pages_crawled += 1
+                yield self._build_item(
+                    repo_name=repo_name,
+                    file_path=filepath,
+                    content=content,
+                    language=language,
+                    stars=stars,
+                    description=description,
+                    category=category,
+                    topics=topics,
+                )
+
+    def _crawl_repo_tool_search(
+        self,
+        repo_name: str,
+        default_branch: str,
+        language: str,
+        stars: int,
+        description: str,
+        category: str,
+        topics: list[str],
+    ) -> Generator[dict[str, Any], None, None]:
+        """Tool search strategy: fetch root tree, then targeted subdirectories.
+
+        Inspired by Tool Search with Embeddings cookbook — instead of blindly
+        trying every TARGET_FILE, fetch the root listing first to see what
+        exists, then only fetch files that are actually present.
+        """
+        # 1 API call: root listing
+        root_contents = self._gh_api(
+            f"repos/{self.org}/{repo_name}/contents/?ref={default_branch}"
+        )
+        if not root_contents or not isinstance(root_contents, list):
+            return
+
+        root_files = {entry["name"]: entry for entry in root_contents if entry.get("type") == "file"}
+        root_dirs = {entry["name"]: entry for entry in root_contents if entry.get("type") == "dir"}
+
+        files_fetched = 0
+
+        # Fetch only TARGET_FILES that actually exist in root
+        for filename in self.TARGET_FILES:
+            if files_fetched >= self.max_files_per_repo:
+                break
+            if filename not in root_files:
+                continue  # Skip — no wasted API call
+            content = self._fetch_file(repo_name, filename, default_branch)
+            if content is not None:
+                files_fetched += 1
+                self._pages_crawled += 1
+                yield self._build_item(
+                    repo_name=repo_name,
+                    file_path=filename,
+                    content=content,
+                    language=language,
+                    stars=stars,
+                    description=description,
+                    category=category,
+                    topics=topics,
+                )
+
+        # Check docs/ and examples/ if they exist
+        for subdir in ["docs", "examples"]:
+            if files_fetched >= self.max_files_per_repo:
+                break
+            if subdir not in root_dirs:
+                continue
+            subdir_contents = self._gh_api(
+                f"repos/{self.org}/{repo_name}/contents/{subdir}?ref={default_branch}"
+            )
+            if not subdir_contents or not isinstance(subdir_contents, list):
+                continue
+            for entry in subdir_contents[:3]:
+                if files_fetched >= self.max_files_per_repo:
+                    break
+                if entry.get("type") != "file":
+                    continue
+                name = entry.get("name", "")
+                if name.endswith((".md", ".rst", ".txt")):
+                    content = self._fetch_file(
+                        repo_name, f"{subdir}/{name}", default_branch
+                    )
+                    if content is not None:
+                        files_fetched += 1
+                        self._pages_crawled += 1
+                        yield self._build_item(
+                            repo_name=repo_name,
+                            file_path=f"{subdir}/{name}",
+                            content=content,
+                            language=language,
+                            stars=stars,
+                            description=description,
+                            category=category,
+                            topics=topics,
+                        )
+
+        # Fetch stat-relevant source files from src-like directories
+        for src_dir in ["src", "lib", "core", "pkg"]:
+            if files_fetched >= self.max_files_per_repo:
+                break
+            if src_dir not in root_dirs:
+                continue
             yield from self._crawl_source_files(
                 repo_name, default_branch, language, stars, description,
                 category, topics, files_fetched,
             )
+            break
+
+    def _find_stat_relevant_files(
+        self, tree_entries: list[dict],
+    ) -> list[tuple[str, str]]:
+        """From a recursive tree, find source files likely related to statistics."""
+        stat_file_patterns = re.compile(
+            r"(?i)(statistic|metric|experiment|test|sample|"
+            r"hypothesis|confidence|bayes|causal|treatment|"
+            r"measure|monitor|evaluat|benchmark)"
+        )
+        source_exts = {".py", ".ts", ".go", ".rs", ".java", ".scala", ".kt"}
+
+        matches: list[tuple[str, str]] = []
+        for entry in tree_entries:
+            if entry.get("type") != "blob":
+                continue
+            path = entry.get("path", "")
+            # Must be a source file
+            if not any(path.endswith(ext) for ext in source_exts):
+                continue
+            # Must match stat keywords in filename or path
+            if stat_file_patterns.search(path):
+                matches.append((path, entry["sha"]))
+
+        # Sort by path depth (prefer shallow files)
+        matches.sort(key=lambda x: x[0].count("/"))
+        return matches[:5]  # Limit to 5 stat-relevant source files
+
+    def _fetch_blob(self, repo_name: str, sha: str) -> str | None:
+        """Fetch a blob by SHA — lighter than contents API for known files."""
+        data = self._gh_api(
+            f"repos/{self.org}/{repo_name}/git/blobs/{sha}"
+        )
+        if not data or not isinstance(data, dict):
+            return None
+        content_b64 = data.get("content")
+        if not content_b64:
+            return None
+        try:
+            return b64decode(content_b64).decode("utf-8", errors="replace")
+        except Exception:
+            return None
 
     def _crawl_source_files(
         self,

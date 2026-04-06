@@ -13,6 +13,7 @@ from scrapy_researchers.metrics.efficiency_tracker import (
     EfficiencyTracker,
     GapEntry,
     TimeWindow,
+    tool_call_made,
 )
 from scrapy_researchers.metrics.gap_analyzer import GapAnalyzer, SpiderEfficiency
 
@@ -62,6 +63,29 @@ class TestTimeWindow:
         assert d["tool_calls"] == 15
         assert d["spider_name"] == "test_spider"
         assert d["ratio_tool_calls_per_page"] == 3.0
+
+    def test_to_dict_with_variant(self) -> None:
+        w = TimeWindow(
+            window_start=1711500000,
+            window_end=1711500060,
+            pages_crawled=5,
+            tool_calls=15,
+            spider_name="spotify_stats",
+            variant="ptc",
+        )
+        d = w.to_dict()
+        assert d["variant"] == "ptc"
+
+    def test_to_dict_without_variant(self) -> None:
+        w = TimeWindow(
+            window_start=1711500000,
+            window_end=1711500060,
+            pages_crawled=5,
+            tool_calls=15,
+            spider_name="test_spider",
+        )
+        d = w.to_dict()
+        assert "variant" not in d
 
 
 # ── EfficiencyTracker Tests ──────────────────────────────────────
@@ -114,6 +138,57 @@ class TestEfficiencyTracker:
         ts = tracker.get_time_series()
         assert len(ts) == 1
         assert ts[0]["pages_crawled"] == 5
+
+    def test_on_tool_call_increments_current_window(self) -> None:
+        tracker = EfficiencyTracker()
+        spider = MagicMock()
+        spider.name = "test_spider"
+        tracker._current_window = TimeWindow(
+            window_start=time.time(), window_end=0.0, spider_name="test_spider"
+        )
+        tracker.on_tool_call(spider=spider)
+        assert tracker._current_window.tool_calls == 1
+        assert tracker._live_tool_calls == 1
+
+    def test_on_tool_call_rolls_window(self) -> None:
+        tracker = EfficiencyTracker(window_seconds=0.01)
+        spider = MagicMock()
+        spider.name = "test_spider"
+        tracker._current_window = TimeWindow(
+            window_start=time.time() - 1.0,  # 1 second ago (> 0.01s window)
+            window_end=0.0,
+            spider_name="test_spider",
+        )
+        tracker._current_window.tool_calls = 5
+        tracker.on_tool_call(spider=spider)
+        # Old window should have been rolled
+        assert len(tracker.windows) == 1
+        assert tracker.windows[0].tool_calls == 5
+        # New window should have 1 tool call
+        assert tracker._current_window.tool_calls == 1
+
+    def test_live_tool_calls_skip_telemetry_fallback(self) -> None:
+        """When live tool calls are received, telemetry fallback is skipped."""
+        tracker = EfficiencyTracker()
+        tracker._live_tool_calls = 10
+        tracker.windows = [
+            TimeWindow(
+                window_start=0, window_end=60,
+                pages_crawled=5, tool_calls=10,
+                spider_name="test",
+            ),
+        ]
+        spider = MagicMock()
+        spider.name = "test"
+        # spider_closed should NOT call _load_agent_tool_calls
+        # because _live_tool_calls > 0
+        tracker.spider_closed(spider=spider, reason="finished")
+        # Tool calls should remain as-is (not overwritten by telemetry)
+        assert tracker.windows[0].tool_calls == 10
+
+    def test_tool_call_made_is_signal(self) -> None:
+        """Verify tool_call_made is a valid signal object."""
+        assert tool_call_made is not None
 
 
 # ── GapAnalyzer Tests ────────────────────────────────────────────
@@ -205,3 +280,24 @@ class TestGapAnalyzer:
         analyzer = GapAnalyzer(metrics_dir=str(tmp_path))
         result = analyzer.compare_experiments("control", "ptc")
         assert "error" in result
+
+    def test_compare_experiments_with_data(self, tmp_path: Path) -> None:
+        # Write summary files for two variants
+        for variant, ratio in [("control", 4.0), ("ptc", 2.0)]:
+            summary = {
+                "spider": f"spotify_stats_{variant}",
+                "total_pages": 50,
+                "total_tool_calls": int(50 * ratio),
+                "windows": 5,
+                "overall_ratio": ratio,
+                "per_window": [],
+            }
+            path = tmp_path / f"spotify_stats_{variant}_20260406_summary.json"
+            path.write_text(json.dumps(summary))
+
+        analyzer = GapAnalyzer(metrics_dir=str(tmp_path))
+        result = analyzer.compare_experiments("control", "ptc")
+
+        assert "error" not in result
+        assert result["winner"] == "ptc"
+        assert result["improvement_pct"] > 0
