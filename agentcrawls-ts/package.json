@@ -12,7 +12,7 @@
     "crawl": "tsx src/index.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.80.0",
+    "@anthropic-ai/sdk": "0.87.0",
     "@ax-llm/ax": "^19.0.37",
     "@modelcontextprotocol/sdk": "1.28.0",
     "bloom-filters": "^3.0.4",
