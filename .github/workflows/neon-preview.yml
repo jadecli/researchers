@@ -72,7 +72,7 @@ jobs:
 
       - name: Post preview branch info as PR comment
         if: steps.create-branch.outputs.created == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const branchId = '${{ steps.create-branch.outputs.branch_id }}';
