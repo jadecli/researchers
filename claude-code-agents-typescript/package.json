@@ -13,20 +13,22 @@
     "campaign": "tsx src/cli.ts campaign",
     "generate-plugin": "tsx src/cli.ts generate-plugin",
     "codegen": "tsx src/cli.ts codegen",
-    "cowork-task": "tsx src/cli.ts cowork-task"
+    "cowork-task": "tsx src/cli.ts cowork-task",
+    "platform-eval": "tsx src/agents/platform-eval/cli.ts"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.86",
     "@anthropic-ai/sdk": "^0.52.0",
-    "zod": "^3.23.0",
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "vitest": "^2.1.0",
+    "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "@types/node": "^22.0.0"
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
   }
 }
