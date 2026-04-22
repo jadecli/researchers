@@ -65,12 +65,17 @@ if [ -n "$CONFLICT_FILES" ]; then
 fi
 
 # ── 4. TypeScript build check ────────────────────────────────
-AGENTTASKS_CHANGED=$(echo "$CHANGED_FILES" | grep -c '^agenttasks/' 2>/dev/null || echo 0)
+# NOTE: `grep -c ... || echo 0` is buggy — grep prints "0" on stdout AND
+# exits non-zero when there are no matches, so the variable becomes "0\n0"
+# which fails as an integer. Use `|| true` to keep grep's output as truth.
+AGENTTASKS_CHANGED=$(echo "$CHANGED_FILES" | grep -c '^agenttasks/' 2>/dev/null || true)
+AGENTTASKS_CHANGED=${AGENTTASKS_CHANGED:-0}
 if [ "$AGENTTASKS_CHANGED" -gt 0 ] || [ -d "$ROOT/agenttasks/node_modules" ]; then
   echo "  Checking agenttasks TypeScript..."
   if [ -d "$ROOT/agenttasks/node_modules" ] && command -v npx >/dev/null 2>&1; then
     TSC_OUTPUT=$(cd "$ROOT/agenttasks" && npx tsc --noEmit 2>&1 || true)
-    TSC_ERRORS=$(echo "$TSC_OUTPUT" | grep -c 'error TS' || echo 0)
+    TSC_ERRORS=$(echo "$TSC_OUTPUT" | grep -c 'error TS' || true)
+    TSC_ERRORS=${TSC_ERRORS:-0}
     if [ "$TSC_ERRORS" -gt 0 ]; then
       ERRORS+=("agenttasks: $TSC_ERRORS TypeScript error(s) — Vercel build will fail (\$0.126/min)")
       echo "$TSC_OUTPUT" | grep 'error TS' | head -5
@@ -94,13 +99,16 @@ done
 
 # ── 6. Architecture coherence check ──────────────────────────
 # Check that changes in SDK types are reflected in dispatch types
-SDK_CHANGED=$(echo "$CHANGED_FILES" | grep -c '^claude-multi-agent-sdk/' 2>/dev/null || echo 0)
-DISPATCH_CHANGED=$(echo "$CHANGED_FILES" | grep -c '^claude-multi-agent-dispatch/' 2>/dev/null || echo 0)
+SDK_CHANGED=$(echo "$CHANGED_FILES" | grep -c '^claude-multi-agent-sdk/' 2>/dev/null || true)
+SDK_CHANGED=${SDK_CHANGED:-0}
+DISPATCH_CHANGED=$(echo "$CHANGED_FILES" | grep -c '^claude-multi-agent-dispatch/' 2>/dev/null || true)
+DISPATCH_CHANGED=${DISPATCH_CHANGED:-0}
 if [ "$SDK_CHANGED" -gt 0 ] && [ "$DISPATCH_CHANGED" -eq 0 ]; then
   WARNINGS+=("SDK types changed but dispatch not updated — verify dispatch still compiles against SDK")
 fi
 
-CHANNEL_CHANGED=$(echo "$CHANGED_FILES" | grep -c '^claude-channel-dispatch-routing/' 2>/dev/null || echo 0)
+CHANNEL_CHANGED=$(echo "$CHANGED_FILES" | grep -c '^claude-channel-dispatch-routing/' 2>/dev/null || true)
+CHANNEL_CHANGED=${CHANNEL_CHANGED:-0}
 if [ "$CHANNEL_CHANGED" -gt 0 ] && [ "$SDK_CHANGED" -eq 0 ]; then
   WARNINGS+=("Channel routing changed but SDK types not updated — verify types are consistent")
 fi
