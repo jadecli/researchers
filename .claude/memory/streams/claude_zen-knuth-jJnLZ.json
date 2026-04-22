@@ -1,0 +1,12 @@
+{
+  "branch": "claude/zen-knuth-jJnLZ",
+  "session_id": "unknown",
+  "last_event_id": 0,
+  "event_counts": {
+    "prompt": 1,
+    "commit": 0,
+    "session": 0
+  },
+  "last_flushed_at": "2026-04-22T00:52:45Z",
+  "neon_synced": false
+}

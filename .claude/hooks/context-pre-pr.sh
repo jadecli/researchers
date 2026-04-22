@@ -52,11 +52,12 @@ if [ -z "$REMOTE_REF" ] || [ "$REMOTE_REF" != "$LOCAL_REF" ]; then
 fi
 
 # ── 3. Merge conflicts ──────────────────────────────────────
+# Anchor the markers to line-start so the hook doesn't flag its own regex.
 CHANGED_FILES=$(git diff --name-only main..HEAD 2>/dev/null || true)
 CONFLICT_FILES=""
 for file in $CHANGED_FILES; do
   [ -f "$ROOT/$file" ] || continue
-  if grep -ql '<<<<<<< \|======= \|>>>>>>> ' "$ROOT/$file" 2>/dev/null; then
+  if grep -qlE '^(<<<<<<< |======= ?$|>>>>>>> )' "$ROOT/$file" 2>/dev/null; then
     CONFLICT_FILES="$CONFLICT_FILES $file"
   fi
 done
