@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<decision-report spec-id="git-platform-decision" spec-version="1.0.0" generated-at="2026-04-22T00:00:00Z">
+  <diff-summary>
+    Session working on branch claude/zen-knuth-jJnLZ, base ref 0470103 (main), 0 commits ahead.
+    At report time: 0 files committed, 3 unstaged edits to pre-existing buffers, and 13 untracked
+    new files introducing the decision tooling — refs/ XML spec + README + out/ dir,
+    .claude/skills/git-platform-eval/ skill with 3 TS scripts, and the
+    claude-code-agents-typescript/src/agents/platform-eval/ Opus 4.7 Agent SDK evaluator
+    (index.ts, cli.ts, xml-spec.ts, diff-reader.ts, deterministic-checks.ts, eval-loop.ts).
+    No modifications to existing subrepos' source; package.json adds the agent-sdk dep. All
+    new code additive; commit will move these from "untracked" to "committed" before PR.
+  </diff-summary>
+
+  <scores>
+    <platform id="github">
+      <criterion id="claude-code-web-support" score="5">
+        <rationale>
+          code.claude.com/docs/en/claude-code-on-the-web.md references GitHub PRs/issues as
+          first-class targets; @claude mentions on PRs are a GitHub-native flow. No equivalent
+          surface documented for GitLab MRs at this time.
+        </rationale>
+      </criterion>
+      <criterion id="github-actions-vs-gitlab-cicd" score="5">
+        <rationale>
+          github-actions.md is GA with complete example workflows in this monorepo's
+          claude-code-actions/ subrepo (7 workflows). The maturity gap is the single strongest
+          signal in this decision.
+        </rationale>
+      </criterion>
+      <criterion id="code-review-integration" score="5">
+        <rationale>
+          /code-review skill and code.claude.com/docs/en/code-review docs assume `gh pr diff`
+          upstream. claude-code-security-review/ already ships scanners wired to GH Actions.
+        </rationale>
+      </criterion>
+      <criterion id="ultraplan-ultrareview" score="5">
+        <rationale>
+          /ultrareview takes a GitHub PR number; ultraplan docs show GitHub repo/PR URLs.
+          Works without a remote for the local-branch variant, but the networked form is GH.
+        </rationale>
+      </criterion>
+      <criterion id="mcp-ecosystem" score="5">
+        <rationale>
+          First-party GitHub MCP server is already enabled in this repo (mcp__github__* used
+          extensively: list_pull_requests, add_issue_comment, pull_request_review_write, etc.).
+          Zero switching cost.
+        </rationale>
+      </criterion>
+      <criterion id="computer-use-integration" score="4">
+        <rationale>
+          Computer-use operates on any web UI, but github.com's stable selectors + existing
+          Claude examples give it a small edge in recipe availability vs gitlab.com.
+        </rationale>
+      </criterion>
+      <criterion id="enterprise-maturity" score="5">
+        <rationale>
+          code.claude.com/docs/en/github-enterprise-server.md documents the integration, and
+          user already has an active GitHub Enterprise (enterprises/subagentskills) with the
+          managedsubagents org ready. Zero procurement friction.
+        </rationale>
+      </criterion>
+      <criterion id="existing-tooling-fit" score="5">
+        <rationale>
+          9 subrepos including claude-code-actions/, devops-review/, and
+          claude-code-security-review/ are all GitHub-native. CLAUDE.md references
+          `gh pr create`/GitHub Actions throughout. Switching would be a rewrite.
+        </rationale>
+      </criterion>
+      <criterion id="release-cadence-alignment" score="5">
+        <rationale>
+          code.claude.com/docs/en/whats-new/rss.xml items consistently show GitHub-first
+          integrations (github-actions, github-enterprise-server, web app PR support).
+          GitLab CI/CD integration is maintained by GitLab per the beta doc.
+        </rationale>
+      </criterion>
+      <criterion id="customer-evidence" score="4">
+        <rationale>
+          docs.github.com/en/copilot/concepts/agents/anthropic-claude documents Copilot's
+          Claude integration — strong validation signal at GitHub's side.
+        </rationale>
+      </criterion>
+      <criterion id="cost-and-seat-model" score="3">
+        <rationale>
+          GitHub Enterprise per-seat is standard; Copilot is additive. Starts with existing
+          subagentskills enterprise, so no new procurement at current scale.
+        </rationale>
+      </criterion>
+      <criterion id="migration-risk" score="5">
+        <rationale>
+          No migration: jadecli/researchers is already on GitHub with 9 subrepos + submodules
+          + PR history. Status-quo cost is zero.
+        </rationale>
+      </criterion>
+      <final-score>4.80</final-score>
+    </platform>
+
+    <platform id="gitlab">
+      <criterion id="claude-code-web-support" score="2">
+        <rationale>
+          claude-code-on-the-web.md does not document GitLab MR ingestion; workaround would
+          require custom CI hooks pushing context to the web session.
+        </rationale>
+      </criterion>
+      <criterion id="github-actions-vs-gitlab-cicd" score="2">
+        <rationale>
+          code.claude.com/docs/en/gitlab-ci-cd.md states explicitly "currently in beta,
+          features and functionality may evolve" and is maintained by GitLab, not Anthropic.
+          Acceptable for exploration, not for production gating.
+        </rationale>
+      </criterion>
+      <criterion id="code-review-integration" score="2">
+        <rationale>
+          No Anthropic-authored GitLab /code-review recipe; feasible via glab CLI piped to
+          `claude -p` but documentation and examples are thin.
+        </rationale>
+      </criterion>
+      <criterion id="ultraplan-ultrareview" score="2">
+        <rationale>
+          ultraplan/ultrareview docs reference GitHub PR numbers. Manual bundling of a GitLab
+          MR diff into the local-branch flow works but loses the networked form.
+        </rationale>
+      </criterion>
+      <criterion id="mcp-ecosystem" score="2">
+        <rationale>
+          A community GitLab MCP server exists, but scope lags the first-party github MCP
+          (no PR review write, no copilot review request). This repo would need to rewire
+          every mcp__github__* call site.
+        </rationale>
+      </criterion>
+      <criterion id="computer-use-integration" score="4">
+        <rationale>
+          gitlab.com is an equally well-known web UI; computer-use recipes would transfer
+          with modest selector rework. Near-parity with github.com.
+        </rationale>
+      </criterion>
+      <criterion id="enterprise-maturity" score="3">
+        <rationale>
+          GitLab Self-Managed is mature, but code.claude.com docs currently do not cover a
+          self-hosted GitLab integration the way github-enterprise-server.md covers GHES.
+        </rationale>
+      </criterion>
+      <criterion id="existing-tooling-fit" score="1">
+        <rationale>
+          Every hook, subrepo workflow, and CLAUDE.md command in this monorepo targets
+          GitHub. Switching would touch claude-code-actions/, devops-review/, .github/,
+          and every mcp__github__* call — weeks of rewrites for no feature gain.
+        </rationale>
+      </criterion>
+      <criterion id="release-cadence-alignment" score="2">
+        <rationale>
+          Per the gitlab-ci-cd.md note, GitLab maintains the integration. RSS changelog
+          cadence for GitLab features therefore trails Anthropic's own releases.
+        </rationale>
+      </criterion>
+      <criterion id="customer-evidence" score="4">
+        <rationale>
+          claude.com/customers/gitlab and claude.com/customers/gitlab-enterprise show real
+          production usage at GitLab itself — strong validation on the GitLab side.
+        </rationale>
+      </criterion>
+      <criterion id="cost-and-seat-model" score="4">
+        <rationale>
+          GitLab bundles CI/CD minutes + integrated DevSecOps scanners in a single tier;
+          at scale (10+ seats) the economics are mildly favorable vs separate Copilot.
+        </rationale>
+      </criterion>
+      <criterion id="migration-risk" score="2">
+        <rationale>
+          Migrating 9 subrepos + submodules + PR history + CI workflows from GitHub is
+          nontrivial. Doable but high-effort and reversible only with parallel mirroring.
+        </rationale>
+      </criterion>
+      <final-score>2.30</final-score>
+    </platform>
+  </scores>
+
+  <recommendation choice="github" confidence="high">
+    <summary>
+      Adopt GitHub as the primary host using the managedsubagents org under the existing
+      subagentskills Enterprise. The integration maturity gap (GA vs beta CI, first-party
+      MCP, Anthropic-authored docs for Enterprise Server, web app + ultrareview + code-review
+      all GH-native) compounds with the zero-migration cost: the monorepo is already on
+      GitHub and every subrepo's tooling targets it.
+    </summary>
+    <main-tradeoff>
+      GitLab has stronger bundled DevSecOps (SAST/DAST/dependency scanning) and a nicer
+      CI/CD minutes economic model at larger team sizes, but those wins do not offset the
+      cost of rewriting every Anthropic-integration path today.
+    </main-tradeoff>
+    <hedge>
+      Keep gitlab.com/managedsubagents dormant as an escape valve. Revisit if (a) Anthropic
+      promotes gitlab-ci-cd.md out of beta AND ships first-party GitLab MCP, or
+      (b) Claude Code on the Web, ultraplan, and ultrareview add documented GitLab MR
+      support. Mirror the decision report quarterly against rss.xml to catch changes.
+    </hedge>
+  </recommendation>
+
+  <next-actions>
+    <action>Move jadecli/researchers under the managedsubagents GitHub org (or fork it there) and flip the default remote — preserves git history and PR numbers.</action>
+    <action>Enable GitHub Actions workflows from claude-code-actions/ on the new org repo: claude-code-ci.yml (PR review), claude-code-security.yml (scanner triage), both using CLAUDE_CODE_OAUTH_TOKEN from org secrets.</action>
+    <action>Wire Claude Code on the Web to the new repo: configure SessionStart hook to read .claude/bootstrap.xml, add org-level OAuth token, verify /ultrareview runs against a test PR.</action>
+    <action>Register the GitHub MCP server (already in use) for the new org scope and confirm mcp__github__* tool authorization.</action>
+    <action>Add a quarterly loop (/loop 90d) that re-runs this skill against refs/git-platform-decision-spec.xml so the decision stays rated against the current RSS feed.</action>
+    <action>Keep gitlab.com/managedsubagents group private with 0 projects as a documented fallback; add a reminder in the hedge section of this report to re-evaluate on beta-graduation.</action>
+  </next-actions>
+</decision-report>

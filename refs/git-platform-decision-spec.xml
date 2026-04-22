@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<spec id="git-platform-decision" version="1.0.0" created="2026-04-22">
+  <!--
+    GitHub vs GitLab decision spec for jadecli/researchers.
+
+    Consumed by:
+      - .claude/skills/git-platform-eval (produces the decision report)
+      - claude-code-agents-typescript/src/agents/platform-eval (validates report
+        against this spec's rubric using Opus 4.7)
+
+    The spec drives:
+      1. Which criteria must be scored
+      2. How criteria are weighted
+      3. The required output schema
+      4. The pass thresholds the evaluator enforces
+  -->
+
+  <context>
+    <repo>jadecli/researchers</repo>
+    <current-host>github.com/jadecli/researchers</current-host>
+    <candidates>
+      <candidate id="github">
+        <org-url>https://github.com/managedsubagents</org-url>
+        <enterprise-url>https://github.com/enterprises/subagentskills</enterprise-url>
+        <status>GitHub Enterprise active; new org created; 0 repos</status>
+      </candidate>
+      <candidate id="gitlab">
+        <group-url>https://gitlab.com/managedsubagents</group-url>
+        <status>Private group created; 0 projects</status>
+      </candidate>
+    </candidates>
+    <goals>
+      <goal>Compound on Anthropic's Claude Code release cadence (rss.xml)</goal>
+      <goal>Enable Claude Code on the Web, routines, ultraplan, ultrareview</goal>
+      <goal>Enable computer-use and code-review integrations</goal>
+      <goal>Run CI-triggered programmatic agents (Agent SDK in pipelines)</goal>
+      <goal>Keep the GitHub MCP toolset (already wired) as first-class</goal>
+    </goals>
+  </context>
+
+  <!--
+    Criteria are scored on a 1-5 scale per platform.
+    final_score(platform) = sum(criterion.score * criterion.weight) / sum(weights)
+  -->
+  <criteria>
+    <criterion id="claude-code-web-support" weight="5">
+      <question>Does the platform support Claude Code on the Web out of the box (docs.claude.com)?</question>
+      <signal>claude-code-on-the-web docs reference GitHub PRs / issues directly</signal>
+    </criterion>
+
+    <criterion id="github-actions-vs-gitlab-cicd" weight="5">
+      <question>How mature is the Claude Code CI integration — production or beta?</question>
+      <signal>code.claude.com/docs/en/gitlab-ci-cd.md says "currently in beta"</signal>
+      <signal>code.claude.com/docs/en/github-actions is GA with example workflows</signal>
+    </criterion>
+
+    <criterion id="code-review-integration" weight="4">
+      <question>Is the /code-review workflow documented and wired for this platform?</question>
+    </criterion>
+
+    <criterion id="ultraplan-ultrareview" weight="4">
+      <question>Do /ultraplan and /ultrareview expect GitHub PRs, GitLab MRs, or either?</question>
+    </criterion>
+
+    <criterion id="mcp-ecosystem" weight="4">
+      <question>Is the platform's MCP server first-party (github MCP) vs community (gitlab MCP)?</question>
+      <signal>This repo already uses mcp__github__* tools extensively</signal>
+    </criterion>
+
+    <criterion id="computer-use-integration" weight="3">
+      <question>Does computer-use have documented recipes for the platform's UI?</question>
+    </criterion>
+
+    <criterion id="enterprise-maturity" weight="4">
+      <question>Does the platform have a documented Enterprise integration (SSO, audit log, self-hosted)?</question>
+      <signal>code.claude.com/docs/en/github-enterprise-server.md exists</signal>
+    </criterion>
+
+    <criterion id="existing-tooling-fit" weight="5">
+      <question>Which platform does this monorepo's tooling already target?</question>
+      <signal>claude-code-actions/, devops-review/, and GitHub hooks all target GitHub</signal>
+    </criterion>
+
+    <criterion id="release-cadence-alignment" weight="3">
+      <question>Which platform's Claude Code integration adopts RSS changelog items faster?</question>
+      <signal>whats-new/rss.xml typically announces github-first features</signal>
+    </criterion>
+
+    <criterion id="customer-evidence" weight="2">
+      <question>What does claude.com/customers show about real-world usage?</question>
+      <signal>claude.com/customers/gitlab and /gitlab-enterprise exist (GitLab engaged)</signal>
+      <signal>Anthropic docs power GitHub Copilot's Claude integration</signal>
+    </criterion>
+
+    <criterion id="cost-and-seat-model" weight="2">
+      <question>Per-seat cost at current team size and the next 2 scale tiers?</question>
+    </criterion>
+
+    <criterion id="migration-risk" weight="3">
+      <question>What is the cost of migrating the 9 sub-repos if the initial choice is wrong?</question>
+      <signal>Monorepo with 9 sub-repos + submodules; nontrivial history</signal>
+    </criterion>
+  </criteria>
+
+  <!--
+    The skill must emit a <decision-report> document that matches this schema.
+    The evaluator validates the produced XML structurally before accepting.
+  -->
+  <output-schema>
+    <element name="decision-report" required="true">
+      <attribute name="spec-id" required="true" value="git-platform-decision"/>
+      <attribute name="spec-version" required="true"/>
+      <attribute name="generated-at" required="true"/>
+
+      <element name="diff-summary" required="true">
+        <description>Summary of git diffs inspected this session (file count, +/- lines, branches touched).</description>
+      </element>
+
+      <element name="scores" required="true">
+        <element name="platform" required="true" min-occurs="2" max-occurs="2">
+          <attribute name="id" required="true" enum="github,gitlab"/>
+          <element name="criterion" required="true" min-occurs="12" max-occurs="12">
+            <attribute name="id" required="true"/>
+            <attribute name="score" required="true" min="1" max="5"/>
+            <element name="rationale" required="true" min-chars="40"/>
+          </element>
+          <element name="final-score" required="true"/>
+        </element>
+      </element>
+
+      <element name="recommendation" required="true">
+        <attribute name="choice" required="true" enum="github,gitlab"/>
+        <attribute name="confidence" required="true" enum="low,medium,high"/>
+        <element name="summary" required="true" min-chars="120"/>
+        <element name="main-tradeoff" required="true" min-chars="60"/>
+        <element name="hedge" required="true" min-chars="40">
+          <description>What to keep dormant/fallback and conditions to revisit.</description>
+        </element>
+      </element>
+
+      <element name="next-actions" required="true">
+        <element name="action" required="true" min-occurs="3"/>
+      </element>
+    </element>
+  </output-schema>
+
+  <!--
+    The evaluator checks the produced decision-report against this rubric.
+    Any failure means the Opus 4.7 evaluator returns verdict="needs-revision".
+  -->
+  <rubric>
+    <check id="all-criteria-scored" severity="block">
+      Each of the 12 criteria MUST be scored for BOTH platforms (24 rows total).
+    </check>
+    <check id="scores-in-range" severity="block">
+      All score attributes MUST be integers in [1, 5].
+    </check>
+    <check id="rationales-non-empty" severity="block">
+      Each rationale MUST be at least 40 characters and reference at least one concrete signal or doc URL.
+    </check>
+    <check id="final-score-computed" severity="block">
+      Each platform's final-score MUST equal the weighted average of its criteria (within rounding).
+    </check>
+    <check id="recommendation-matches-winner" severity="block">
+      recommendation/@choice MUST match the platform with the higher final-score, OR include an explicit override rationale in hedge.
+    </check>
+    <check id="diff-summary-present" severity="block">
+      diff-summary MUST be populated from actual git diffs in this session (not empty, not "N/A").
+    </check>
+    <check id="hedge-present" severity="warn">
+      A hedge SHOULD name a concrete condition under which the unchosen platform would win.
+    </check>
+    <check id="next-actions-minimum" severity="warn">
+      next-actions SHOULD list at least 3 concrete, verifiable actions.
+    </check>
+  </rubric>
+
+  <evaluator>
+    <model>claude-opus-4-7</model>
+    <reasoning>
+      Opus 4.7 is used because the validation requires (a) XML structural checks,
+      (b) numeric consistency (weighted average), (c) semantic judgement on
+      whether rationales reference real signals. Only the last needs deep
+      reasoning; (a) and (b) are deterministic and run as scripts first.
+    </reasoning>
+  </evaluator>
+</spec>
